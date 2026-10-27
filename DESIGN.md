@@ -81,7 +81,7 @@ thread from the source of `ClarkeMaskCoreFactory`, with the few engine helpers i
 
 * Threads: setting `ClarkeMask/threads`, 0 = automatic (processors allowed by the platform,
   limited by the available memory, a frame and its buffers per thread), 1 = serial.
-* PixInsight 1.9.4 (no `Thread`): serial, unchanged.
+* Without `Thread` objects (PixInsight before 1.9.5, no longer supported since 0.2.3): serial.
 * A frame whose thread fails is detected again in the main thread. Stop: the threads poll an abort
   flag between grids, and every thread is joined before the group ends.
 * An optional Python helper was considered and prototyped (branch `dev/python`): slower than the

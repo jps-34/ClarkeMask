@@ -30,10 +30,10 @@ if ( typeof engine === "undefined" )
    console.show();
    console.warningln( "ClarkeMask-WBPP.js is a WBPP event script and does nothing on its own. In WBPP, " +
                       "Pipeline tab, 'Event Script' box: tick it, select this file, then run WBPP. " +
-                      "To process frames outside WBPP, use Script > Utilities > ClarkeMask." );
+                      "To process frames outside WBPP, use Script > JPS > ClarkeMask." );
    console.warningln( "ClarkeMask-WBPP.js est un script d'événement de WBPP et ne fait rien seul. Dans WBPP, " +
                       "onglet Pipeline, cadre « Event Script » : le cocher, choisir ce fichier, puis lancer WBPP. " +
-                      "Pour traiter des brutes hors de WBPP : Script > Utilities > ClarkeMask." );
+                      "Pour traiter des brutes hors de WBPP : Script > JPS > ClarkeMask." );
 }
 
 function __clarkeMaskLog( state, text )

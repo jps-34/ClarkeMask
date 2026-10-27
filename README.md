@@ -53,15 +53,15 @@ script.
 
 ## Setting: detection threads
 
-With PixInsight 1.9.5 or later, the frames of a group are detected in parallel, one per thread;
+The frames of a group are detected in parallel, one per thread;
 masking and saving stay in order, and the results are the same as in series. **Auto** (default)
 uses as many threads as the processors allowed in the PixInsight preferences, limited by the
 available memory (each thread holds one frame); **1** detects in series. Set in the dialog, used by
-the WBPP event script. With PixInsight 1.9.4 the detection is serial.
+the WBPP event script.
 
 ## Requirements
 
-* PixInsight 1.9.4 or later; 1.9.5 or later for the parallel detection.
+* PixInsight 1.9.5 or later.
 * Registered light frames (mono or colour) with an **astrometric solution**: a WCS written by the
   acquisition software, or the reference frame solved with ImageSolver before WBPP. Frames
   registered by WBPP carry the solution of the reference frame. The plate solving option of WBPP
@@ -73,7 +73,7 @@ the WBPP event script. With PixInsight 1.9.4 the detection is serial.
 1. *Resources > Updates > Manage Repositories*, add `https://jps-34.github.io/ClarkeMask/`
 2. *Check for Updates*, restart PixInsight (enable *Allow unsigned update repositories* until the
    repository is signed).
-3. *Script > Utilities > ClarkeMask*. The WBPP event script `ClarkeMask-WBPP.js` is installed in
+3. *Script > JPS > ClarkeMask* (*Script > Utilities* up to 0.2.3). The WBPP event script `ClarkeMask-WBPP.js` is installed in
    the same folder; its path is shown at the bottom of the dialog.
 
 Or download the `scripts/` folder and run `ClarkeMask.js` with *Script > Execute Script File*
@@ -84,13 +84,13 @@ Or download the `scripts/` folder and run `ClarkeMask.js` with *Script > Execute
 **With WBPP** (masking in place of the registered frames, before local normalization and
 integration):
 
-1. Run *Script > Utilities > ClarkeMask* once to check the settings; the dialog shows the path of
+1. Run *Script > JPS > ClarkeMask* once to check the settings; the dialog shows the path of
    the event script.
 2. In WBPP, *Pipeline > Event Script*: enable it and select `ClarkeMask-WBPP.js` from the
    ClarkeMask folder.
 3. Run WBPP as usual. Masks, coverage map and reports are in `<WBPP output>/ClarkeMask/`.
 
-**Standalone** (*Script > Utilities > ClarkeMask*), on registered frames; the inputs are never
+**Standalone** (*Script > JPS > ClarkeMask*), on registered frames; the inputs are never
 modified:
 
 1. **Add frames...** (registered frames with an astrometric solution) and choose an output folder.

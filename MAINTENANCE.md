@@ -45,7 +45,7 @@ as the READMEs say.
 
 ## 2. Layout
 
-* `scripts/`: the only sources to edit (V8, PixInsight 1.9.4 and later). `ClarkeMask.js` (dialog,
+* `scripts/`: the only sources to edit (V8, PixInsight 1.9.5 and later). `ClarkeMask.js` (dialog,
   menu entry), `ClarkeMask-WBPP.js` (WBPP event script), `ClarkeMaskEngine.js` (PixInsight layer),
   `ClarkeMaskCore.js` (numeric core, also run under node). The core namespace is built by
   `ClarkeMaskCoreFactory()`, which must stay self-contained: the engine sends its source code to

@@ -5,7 +5,7 @@ Build the PixInsight update repository served from docs/ (GitHub Pages).
   python3 tools/build_repo.py --user <github_user>
 
 Creates, for the current script version (read from the main script):
-  docs/ClarkeMask-<version>-PI194.zip   V8 scripts, PixInsight 1.9.4 and later
+  docs/ClarkeMask-<version>-PI195.zip   V8 scripts, PixInsight 1.9.5 and later
   docs/updates.xri                      repository index (unsigned)
 
 The archive follows the layout required by PixInsight:
@@ -27,13 +27,13 @@ NAME = "ClarkeMask"
 MAIN_SCRIPT = "scripts/ClarkeMask.js"      # carries var VERSION = "x.y.z"
 
 PACKAGE = {
-    "suffix": "PI194",
-    "version": "1.9.4:1.9.99",
-    "title": "ClarkeMask {v} (PixInsight 1.9.4 and later)",
+    "suffix": "PI195",
+    "version": "1.9.5:1.9.99",
+    "title": "ClarkeMask {v} (PixInsight 1.9.5 and later)",
     "desc": "Masks geostationary satellite trails in registered light frames, so that integration "
             "rejects them pixel by pixel. Runs inside WBPP as an event script, right after "
             "registration, or standalone from the Script menu. Never modifies the original or "
-            "calibrated frames. Parallel detection with PixInsight 1.9.5 and later. English or "
+            "calibrated frames. Parallel detection on all processors. English or "
             "French interface.",
 }
 NOTICE = "Copyright (c) 2026 Jacques Pouyaud. GNU GPL v3 or later. Source: https://github.com/{user}/ClarkeMask"

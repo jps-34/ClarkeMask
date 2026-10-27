@@ -4,11 +4,11 @@
       <p>ClarkeMask: geostationary satellite trail masks for WBPP integration.</p>
       <p>Add https://jps-34.github.io/ClarkeMask/ under Resources &gt; Updates &gt; Manage Repositories.</p>
    </description>
-   <platform os="all" arch="noarch" version="1.9.4:1.9.99">
-      <package fileName="ClarkeMask-0.2.2-PI194.zip" sha1="341e37d168b1adc017ad387fa418a9211f245814" type="script" releaseDate="20261027" serverURL="https://jps-34.github.io/ClarkeMask/">
-         <title>ClarkeMask 0.2.2 (PixInsight 1.9.4 and later)</title>
+   <platform os="all" arch="noarch" version="1.9.5:1.9.99">
+      <package fileName="ClarkeMask-0.2.4-PI195.zip" sha1="35e8dcb40234380744256f7327ef4508c03a7175" type="script" releaseDate="20261027" serverURL="https://jps-34.github.io/ClarkeMask/">
+         <title>ClarkeMask 0.2.4 (PixInsight 1.9.5 and later)</title>
          <description>
-            <p>Masks geostationary satellite trails in registered light frames, so that integration rejects them pixel by pixel. Runs inside WBPP as an event script, right after registration, or standalone from the Script menu. Never modifies the original or calibrated frames. Parallel detection with PixInsight 1.9.5 and later. English or French interface.</p>
+            <p>Masks geostationary satellite trails in registered light frames, so that integration rejects them pixel by pixel. Runs inside WBPP as an event script, right after registration, or standalone from the Script menu. Never modifies the original or calibrated frames. Parallel detection on all processors. English or French interface.</p>
             <p>Copyright (c) 2026 Jacques Pouyaud. GNU GPL v3 or later. Source: https://github.com/jps-34/ClarkeMask</p>
          </description>
       </package>

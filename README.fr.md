@@ -60,16 +60,16 @@ PixInsight et utilisées par le script d'événement de WBPP.
 
 ## Réglage : threads de détection
 
-Avec PixInsight 1.9.5 ou plus, les brutes d'un groupe sont détectées en parallèle, une par thread ;
+Les brutes d'un groupe sont détectées en parallèle, une par thread ;
 le masquage et l'enregistrement restent faits dans l'ordre, et les résultats sont les mêmes qu'en
 série. **Auto** (par défaut) utilise autant de threads que de processeurs permis dans les
 préférences de PixInsight, dans la limite de la mémoire disponible (chaque thread garde une brute
 en mémoire) ; **1** détecte en série. Se règle dans le dialogue, utilisé par le script d'événement
-de WBPP. Avec PixInsight 1.9.4, la détection est en série.
+de WBPP.
 
 ## Prérequis
 
-* PixInsight 1.9.4 ou plus ; 1.9.5 ou plus pour la détection en parallèle.
+* PixInsight 1.9.5 ou plus.
 * Des brutes registrées (monochromes ou couleur) avec une **solution astrométrique** : plate
   solving à l'acquisition (WCS écrit par le logiciel d'acquisition), ou brute de référence résolue
   avec ImageSolver avant WBPP. L'option de plate solving de WBPP n'aide pas ici : elle ne résout
@@ -83,7 +83,7 @@ de WBPP. Avec PixInsight 1.9.4, la détection est en série.
 1. *Resources > Updates > Manage Repositories*, ajouter `https://jps-34.github.io/ClarkeMask/`
 2. *Check for Updates*, redémarrer PixInsight (activer *Allow unsigned update repositories* tant
    que le dépôt n'est pas signé).
-3. *Script > Utilities > ClarkeMask*. Le script d'événement WBPP `ClarkeMask-WBPP.js` est installé
+3. *Script > JPS > ClarkeMask* (*Script > Utilities* jusqu'à la 0.2.3). Le script d'événement WBPP `ClarkeMask-WBPP.js` est installé
    dans le même dossier ; son chemin est affiché en bas du dialogue.
 
 Ou télécharger le dossier `scripts/` et lancer `ClarkeMask.js` par *Script > Execute Script File*
@@ -94,14 +94,14 @@ Ou télécharger le dossier `scripts/` et lancer `ClarkeMask.js` par *Script > E
 **Avec WBPP** (masquage sur place des brutes registrées, avant la normalisation locale et
 l'intégration) :
 
-1. Lancer une fois *Script > Utilities > ClarkeMask* pour vérifier les réglages ; le dialogue
+1. Lancer une fois *Script > JPS > ClarkeMask* pour vérifier les réglages ; le dialogue
    affiche le chemin du script d'événement.
 2. Dans WBPP, *Pipeline > Event Script* : l'activer et choisir `ClarkeMask-WBPP.js` dans le
    dossier de ClarkeMask.
 3. Lancer WBPP comme d'habitude. Masques, carte de couverture et rapports sont dans
    `<sortie WBPP>/ClarkeMask/`.
 
-**Seul** (*Script > Utilities > ClarkeMask*), sur des brutes registrées ; les entrées ne sont
+**Seul** (*Script > JPS > ClarkeMask*), sur des brutes registrées ; les entrées ne sont
 jamais modifiées :
 
 1. **Ajouter des brutes...** (registrées, avec solution astrométrique) et choisir un dossier de

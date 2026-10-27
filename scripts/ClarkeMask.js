@@ -1,13 +1,13 @@
 #engine v8
 
-#feature-id    ClarkeMask : Utilities > ClarkeMask
+#feature-id    ClarkeMask : JPS > ClarkeMask
 #feature-info  Masks geostationary satellite trails in registered light frames, so that \
    integration rejects them pixel by pixel. Preview of the masks and of their cost, \
    masked copies (the inputs are never modified), viewing of each frame with its mask, \
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.2
+ * ClarkeMask.js  v0.2.4
  * Copyright (c) 2026 Jacques Pouyaud.
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Free software under the GNU General Public License, version 3 or (at your
@@ -22,10 +22,12 @@
  * report only, Apply writes masked copies (<frame>_cm.xisf) into the output
  * folder. Masking in place is the WBPP event script's job.
  *
+ * v0.2.4: menu entry moved to Script > JPS (was Script > Utilities).
  * v0.1.0: first version.
  * v0.2.0: parallel detection on threads (PixInsight 1.9.5), detection threads setting.
  * v0.2.1: trail direction checked against the trails (mirrored astrometric solutions).
  * v0.2.2: licence changed to GPL-3.0-or-later (0.2.1 and earlier: MIT).
+ * v0.2.3: PixInsight 1.9.5 or later required (the version the script is tested on).
  */
 
 
@@ -33,7 +35,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.2";
+var VERSION = "0.2.4";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
@@ -205,13 +207,13 @@ function buildTips()
                   "le masquage et l'enregistrement restent faits dans l'ordre. Mêmes résultats qu'en série.</p>" +
                   "<p><b>Auto</b> (par défaut) : autant de threads que de processeurs permis par les préférences de PixInsight, " +
                   "limité par la mémoire disponible (chaque thread garde une brute en mémoire). <b>1</b> : détection en série. " +
-                  "Nécessite PixInsight 1.9.5 ; en version antérieure, la détection est en série. Réglage enregistré aussitôt " +
+                  "Réglage enregistré aussitôt " +
                   "et utilisé par le script d'événement de WBPP.</p>",
                   "<p><b>Detection threads.</b> The frames of a group are detected in parallel, one per thread; masking and " +
                   "saving are still done in order. Same results as in series.</p>" +
                   "<p><b>Auto</b> (default): as many threads as the processors allowed by the PixInsight preferences, limited by " +
-                  "the available memory (each thread holds one frame in memory). <b>1</b>: serial detection. Needs PixInsight " +
-                  "1.9.5; with earlier versions the detection is serial. Saved at once and used by the WBPP event script.</p>" ),
+                  "the available memory (each thread holds one frame in memory). <b>1</b>: serial detection. Saved at once and " +
+                  "used by the WBPP event script.</p>" ),
       noData: L( "<p>Valeur écrite sous les masques dans les copies masquées.</p>" +
                  "<p><b>0</b> : pour PixInsight (ImageIntegration, WBPP), qui rejette les pixels à 0 des brutes (réjection basse " +
                  "« Clip low range » à 0, active par défaut dans WBPP).</p>" +

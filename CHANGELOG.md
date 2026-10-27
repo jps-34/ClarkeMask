@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4 (2026-10-27)
+* Menu: the script moves from *Script > Utilities* to *Script > JPS*, the folder that groups
+  the PixInsight scripts of Jacques Pouyaud. No change to the behaviour.
+
+## 0.2.3 (2026-10-27)
+* PixInsight 1.9.5 or later required (update repository, archive `ClarkeMask-0.2.3-PI195.zip`,
+  READMEs): the version the script is developed and tested on, and the first with the threads used
+  by the parallel detection. Versions up to 0.2.2 declared 1.9.4, never tested on it. No change to
+  the behaviour.
+
 ## 0.2.2 (2026-10-27)
 * Licence changed from MIT to the GNU General Public License, version 3 or later
   (GPL-3.0-or-later). Versions up to 0.2.1 remain available under the MIT License. No change to
