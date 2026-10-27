@@ -50,9 +50,17 @@ values search more tilted directions and take longer. Needs the exposure time in
 Both values are set in the dialog, saved in the PixInsight settings and used by the WBPP event
 script.
 
+## Setting: detection threads
+
+With PixInsight 1.9.5 or later, the frames of a group are detected in parallel, one per thread;
+masking and saving stay in order, and the results are the same as in series. **Auto** (default)
+uses as many threads as the processors allowed in the PixInsight preferences, limited by the
+available memory (each thread holds one frame); **1** detects in series. Set in the dialog, used by
+the WBPP event script. With PixInsight 1.9.4 the detection is serial.
+
 ## Requirements
 
-* PixInsight 1.9.4 or later.
+* PixInsight 1.9.4 or later; 1.9.5 or later for the parallel detection.
 * Registered light frames (mono or colour) with an **astrometric solution**: plate solving at
   acquisition, or in WBPP. Frames registered by WBPP carry the solution of the reference frame.
 * For the confirmation by length: the exposure time in the headers (`EXPTIME` or `EXPOSURE`).

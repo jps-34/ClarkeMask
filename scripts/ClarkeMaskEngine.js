@@ -8,6 +8,12 @@
  * which must be loaded first), writes 0 under the masks in every channel,
  * and writes one mask file per frame, a coverage map and a CSV report.
  *
+ * With PixInsight 1.9.5 and later, the frames of a group are detected in
+ * parallel on Thread objects (each with a JavaScript runtime of its own, where
+ * the core is rebuilt from the source of ClarkeMaskCoreFactory); the main
+ * thread masks and saves the frames in order as their detections arrive. Same
+ * code, same results as the serial path.
+ *
  * No #include here: the WBPP event script loads this file with eval, where
  * preprocessor directives and the pjsr/*.jsh constants are not available.
  */
@@ -33,6 +39,7 @@ var ClarkeMaskEngine = ( function()
       onProgress: null,     // function() called during the detection of a frame (UI events)
       lowCoverage: 0.5,     // warn where fewer than this fraction of the frames remain
       detect: null,         // options passed to ClarkeMaskCore.detectAll
+      threads: null,        // detection threads: null = setting ClarkeMask/threads, 0 = automatic, 1 = serial
       log: null             // function( text ); console by default
    };
 
@@ -55,23 +62,28 @@ var ClarkeMaskEngine = ( function()
    // the user chose in the dialog.
 
    var SETTINGS = {
-      maxAngle: { key: "ClarkeMask/maxAngle", min: 0, max: 10 },                   // deg
-      maxConfirmedAngle: { key: "ClarkeMask/maxConfirmedAngle", min: 0, max: 15 }  // deg
+      maxAngle: { key: "ClarkeMask/maxAngle", min: 0, max: 10, detect: true },                   // deg
+      maxConfirmedAngle: { key: "ClarkeMask/maxConfirmedAngle", min: 0, max: 15, detect: true }, // deg
+      threads: { key: "ClarkeMask/threads", min: 0, max: 256, def: 0, integer: true }            // 0 = automatic
    };
 
    function readSettings()
    {
-      // {maxAngle, maxConfirmedAngle}: saved values, the core defaults when
-      // absent or invalid.
+      // {maxAngle, maxConfirmedAngle, threads}: saved values, the defaults
+      // (core defaults for the detection settings) when absent or invalid.
       var s = {};
       for ( var name in SETTINGS )
       {
-         s[name] = ClarkeMaskCore.DEFAULTS[name];
+         var st = SETTINGS[name];
+         s[name] = st.detect ? ClarkeMaskCore.DEFAULTS[name] : st.def;
          try
          {
-            var v = Settings.read( SETTINGS[name].key, DataType.Double );
+            var v = Settings.read( st.key, DataType.Double );
             if ( Settings.lastReadOK && v !== null && isFinite( v ) )
-               s[name] = Math.min( Math.max( v, SETTINGS[name].min ), SETTINGS[name].max );
+            {
+               s[name] = Math.min( Math.max( v, st.min ), st.max );
+               if ( st.integer ) s[name] = Math.round( s[name] );
+            }
          }
          catch ( e ) {}
       }
@@ -114,7 +126,7 @@ var ClarkeMaskEngine = ( function()
       var r = Math.PI / 180, cosd = Math.sin( p.y * r ) * Math.sin( q.y * r ) +
               Math.cos( p.y * r ) * Math.cos( q.y * r ) * Math.cos( ( q.x - p.x ) * r );
       var scale = Math.acos( Math.min( 1, cosd ) ) / r * 3600 / 10;
-      return { theta: theta, scale: scale, dec: p.y };
+      return { theta: theta, scale: scale, dec: p.y, width: img.width, height: img.height, channels: img.numberOfChannels };
    }
 
    function geometryFromFile( path )
@@ -140,8 +152,12 @@ var ClarkeMaskEngine = ( function()
 
    function exposureTime( win )
    {
+      return exposureFromKeywords( win.keywords );
+   }
+
+   function exposureFromKeywords( kw )
+   {
       // Exposure in seconds from the EXPTIME or EXPOSURE keyword, 0 if absent.
-      var kw = win.keywords;
       for ( var i = 0; i < kw.length; ++i )
          if ( kw[i].name == "EXPTIME" || kw[i].name == "EXPOSURE" )
          {
@@ -151,7 +167,16 @@ var ClarkeMaskEngine = ( function()
       return 0;
    }
 
-   var SIDEREAL_RATE = 15.0411;   // arcsec per second of time, along a declination circle at the equator
+   function expectedLength( sky, exposure, binning )
+   {
+      // Length of a geosynchronous trail in this exposure, detection-image px
+      // (report and confirmation by length); 0 when unknown. Sidereal rate:
+      // 15.0411 arcsec per second of time along a declination circle at the
+      // equator.
+      if ( !sky || !( exposure > 0 ) )
+         return 0;
+      return 15.0411 * Math.cos( sky.dec * Math.PI / 180 ) * exposure / sky.scale / binning;
+   }
 
    // ------------------------------------------------------------- frames
 
@@ -236,7 +261,9 @@ var ClarkeMaskEngine = ( function()
 
    function writeImage( path, data, w, h, bits, real, hints )
    {
-      // Writes a one-channel image ([0,1] data) as XISF.
+      // Writes a one-channel image ([0,1] data) as XISF, with bits per sample
+      // and integer or floating point samples as given (without setOptions()
+      // the file gets the default 16-bit integer format).
       var win = new ImageWindow( w, h, 1, bits, real, false /*color*/, "ClarkeMask_tmp" );
       try
       {
@@ -248,6 +275,11 @@ var ClarkeMaskEngine = ( function()
          var f = new FileFormatInstance( F );
          if ( !f.create( path, hints || "" ) )
             throw new Error( "Unable to create " + path );
+         var d = new ImageDescription;
+         d.bitsPerSample = bits;
+         d.ieeefpSampleFormat = real;
+         if ( !f.setOptions( d ) )
+            throw new Error( "Unable to set the sample format of " + path );
          if ( !f.writeImage( view.image ) )
             throw new Error( "Unable to write " + path );
          f.close();
@@ -258,10 +290,23 @@ var ClarkeMaskEngine = ( function()
       }
    }
 
-   function processFrame( path, theta, opt, coverage )
+   function detectOptions( detect, sky, exposure, binning )
+   {
+      // Options of detectAll for one frame: the caller's, with the expected
+      // length of a geosynchronous trail when it is known.
+      var dopt = {};
+      if ( detect ) for ( var k in detect ) dopt[k] = detect[k];
+      var el = expectedLength( sky, exposure, binning );
+      if ( el > 0 ) dopt.expectedLength = el;
+      return dopt;
+   }
+
+   function processFrame( path, theta, opt, coverage, found )
    {
       // Detects and masks the trails of one frame. coverage: optional
       // {count: Uint16Array, w, h, frames} updated with the valid pixels left.
+      // found: the detection of this frame already made by a thread
+      // (frameDetection), or none.
       var t0 = Date.now();
       var ws = ImageWindow.open( path, "", "", true );
       if ( ws.length < 1 )
@@ -270,15 +315,21 @@ var ClarkeMaskEngine = ( function()
       var win = ws[0];
       try
       {
-         var img = win.mainView.image, W = img.width, H = img.height;
-         var det = detectionImage( img, opt.binning ), dopt = {}, exposure = exposureTime( win );
-         if ( opt.detect ) for ( var dk in opt.detect ) dopt[dk] = opt.detect[dk];
-         if ( opt.onProgress ) dopt.onGrid = opt.onProgress;
-         // length of a geosynchronous trail in this exposure, detection-image px (report only)
-         if ( opt.sky && exposure > 0 )
-            dopt.expectedLength = SIDEREAL_RATE * Math.cos( opt.sky.dec * Math.PI / 180 ) * exposure /
-                                  opt.sky.scale / opt.binning;
-         var res = ClarkeMaskCore.detectAll( det.data, det.w, det.h, theta, dopt );
+         var img = win.mainView.image, W = img.width, H = img.height, res, exposure, length;
+         if ( found )
+         {
+            if ( found.width != W || found.height != H )
+               throw new Error( "the detection thread read an image of another size" );
+            res = found.result; exposure = found.exposure; length = found.expectedLength;
+         }
+         else
+         {
+            exposure = exposureTime( win );
+            var det = detectionImage( img, opt.binning ), dopt = detectOptions( opt.detect, opt.sky, exposure, opt.binning );
+            if ( opt.onProgress ) dopt.onGrid = opt.onProgress;
+            res = ClarkeMaskCore.detectAll( det.data, det.w, det.h, theta, dopt );
+            length = dopt.expectedLength || 0;
+         }
          var mask = new Uint8Array( W * H );
          var pixels = ClarkeMaskCore.rasterize( res, W, H, opt.binning, opt.margin, opt.endMargin, mask );
          // registration borders are 0 in every channel: channel 0 tells the valid pixels
@@ -323,13 +374,160 @@ var ClarkeMaskEngine = ( function()
             }
          }
          return { file: path, trails: res.trails.length, rejected: res.rejected.length, pixels: pixels,
-                  sigPix: res.sigPix, seconds: ( Date.now() - t0 ) / 1000, detail: res, exposure: exposure,
-                  expectedLength: dopt.expectedLength ? dopt.expectedLength * opt.binning : 0 };
+                  sigPix: res.sigPix, seconds: ( Date.now() - t0 ) / 1000 + ( found ? found.seconds : 0 ), detail: res,
+                  exposure: exposure, expectedLength: length * opt.binning };
       }
       finally
       {
          win.forceClose();
       }
+   }
+
+   // ------------------------------------------------------------- threads
+
+   function frameDetection( d )
+   {
+      // Body of a detection thread: reads the frame, builds the detection
+      // image and runs detectAll. It runs in a runtime of its own, where only
+      // the core and the functions of threadSource() exist (no ImageWindow,
+      // nothing of the calling script). d: {path, theta, detect, sky, binning}.
+      var t0 = Date.now(), img = new Image, exposure = 0, det, W, H;
+      try
+      {
+         var f = new FileFormatInstance( new FileFormat( File.extractExtension( d.path ), true /*read*/, false /*write*/ ) );
+         if ( f.open( d.path, "" ).length < 1 )
+            throw new Error( "Unable to open " + d.path );
+         try
+         {
+            try { exposure = exposureFromKeywords( f.keywords ); } catch ( e ) {}   // format without keywords
+            if ( !f.readImage( img ) )
+               throw new Error( "Unable to read " + d.path );
+         }
+         finally
+         {
+            f.close();
+         }
+         W = img.width; H = img.height;
+         det = detectionImage( img, d.binning );
+      }
+      finally
+      {
+         img.free();
+      }
+      var dopt = detectOptions( d.detect, d.sky, exposure, d.binning );
+      dopt.onGrid = function( i )
+      {
+         Thread.current.status = i;
+         if ( Thread.current.isAborted )
+            throw new Error( "stopped" );
+      };
+      var res = ClarkeMaskCore.detectAll( det.data, det.w, det.h, d.theta, dopt );
+      return { result: res, exposure: exposure, expectedLength: dopt.expectedLength || 0, width: W, height: H,
+               seconds: ( Date.now() - t0 ) / 1000 };
+   }
+
+   function threadSource()
+   {
+      // Source code of a detection thread: the core, the helpers that
+      // frameDetection() calls, and frameDetection() itself as the value of
+      // the script (a Thread calls it with the cloned data).
+      var src = [ "var ClarkeMaskCore = ( " + ClarkeMaskCoreFactory.toString() + " )();" ];
+      var helpers = [ channelData, detectionImage, exposureFromKeywords, expectedLength, detectOptions ];
+      for ( var i = 0; i < helpers.length; ++i )
+         src.push( helpers[i].toString() );
+      src.push( "( " + frameDetection.toString() + " )" );
+      return src.join( "\n" );
+   }
+
+   function threadCount( opt, paths )
+   {
+      // Number of detection threads for a group: 1 (serial) without Thread
+      // objects (PixInsight before 1.9.5) or for a single frame; otherwise
+      // opt.threads or the setting, and when it is 0 (automatic) as many as
+      // the processors allowed by the platform, the frames and the available
+      // memory permit (a frame and its detection buffers per thread, from the
+      // size of the reference frame, or else of the first file).
+      var frames = paths.length;
+      if ( typeof Thread === "undefined" || typeof ClarkeMaskCoreFactory !== "function" || frames < 2 )
+         return 1;
+      var n = opt.threads;
+      if ( n === null || n === undefined )
+         n = readSettings().threads;
+      if ( !( n >= 1 ) )
+      {
+         n = Thread.numberOfProcessors;
+         var mem = null, sky = opt.sky, per = 0;
+         try { mem = System.physicalMemoryStatus(); } catch ( e ) {}
+         if ( sky && sky.width > 0 )
+            per = sky.width * sky.height * 4 * ( sky.channels + 3 );
+         else
+            try { per = 4 * new FileInfo( paths[0] ).size; } catch ( e ) {}
+         if ( mem && mem.availableBytes > 0 && per > 0 )
+            n = Math.min( n, Math.floor( 0.6 * mem.availableBytes / ( per + 268435456 ) ) );
+      }
+      return Math.max( 1, Math.min( Math.round( n ), frames ) );
+   }
+
+   function detectionPool( paths, data, n, idle )
+   {
+      // Detects paths[i] on up to n threads at a time, in the order of i.
+      // result( i ) waits for frame i, calling idle() meanwhile, and returns
+      // its detection (frameDetection), false when idle() returns true (stop
+      // requested), or throws its error. stop() aborts and joins the running
+      // threads: it must be called in every case.
+      var src = threadSource(), next = 0, running = [], done = {};
+      function refill()
+      {
+         for ( var k = running.length - 1; k >= 0; --k )
+            if ( !running[k].thread.isActive )
+            {
+               var e = running[k];
+               e.thread.wait();
+               done[e.index] = e.thread.error ? { error: e.thread.error } : { value: e.thread.result };
+               running.splice( k, 1 );
+            }
+         while ( running.length < n && next < paths.length )
+         {
+            var d = {};
+            for ( var key in data ) d[key] = data[key];
+            d.path = paths[next];
+            var t = new Thread( src, d );
+            t.start();
+            running.push( { thread: t, index: next++ } );
+         }
+      }
+      refill();
+      return {
+         result: function( i )
+         {
+            for ( ;; )
+            {
+               refill();
+               if ( done[i] )
+               {
+                  var r = done[i];
+                  delete done[i];
+                  if ( r.error )
+                     throw new Error( r.error );
+                  return r.value;
+               }
+               var waiting = null;
+               for ( var k = 0; k < running.length && !waiting; ++k )
+                  if ( running[k].index == i ) waiting = running[k].thread;
+               if ( !waiting )
+                  throw new Error( "frame " + i + " was not scheduled for detection" );
+               if ( !waiting.wait( 100 ) && idle && idle() )
+                  return false;
+            }
+         },
+         stop: function()
+         {
+            next = paths.length;
+            for ( var k = 0; k < running.length; ++k ) running[k].thread.abort();
+            for ( var k2 = 0; k2 < running.length; ++k2 ) running[k2].thread.wait();
+            running = [];
+         }
+      };
    }
 
    // ------------------------------------------------------------- groups
@@ -418,6 +616,8 @@ var ClarkeMaskEngine = ( function()
       var user = readSettings(), src = {};
       for ( var sn in SETTINGS )
       {
+         if ( !SETTINGS[sn].detect )
+            continue;
          src[sn] = det[sn] !== undefined ? "given by the caller" : "setting " + SETTINGS[sn].key;
          if ( det[sn] === undefined ) det[sn] = user[sn];
       }
@@ -448,46 +648,82 @@ var ClarkeMaskEngine = ( function()
       if ( opt.outputDir && !File.directoryExists( opt.outputDir ) )
          File.createDirectory( opt.outputDir, true );
 
+      var nth = threadCount( opt, paths ), pool = null, T0 = Date.now();
+      if ( nth > 1 )
+      {
+         opt.log( "detection on " + nth + " threads" );
+         pool = detectionPool( paths, { theta: theta, detect: opt.detect, sky: sky, binning: opt.binning }, nth,
+                               function()
+                               {
+                                  if ( opt.onProgress ) opt.onProgress();
+                                  return !!( opt.abort && opt.abort() );
+                               } );
+      }
       var results = [], failed = [], coverage = { count: null, frames: 0 };
       var csv = [ "file,trails,rejected,pixels,sigma,seconds" ];
       var tcsv = [ "file,status,reason,angle_from_belt_deg,length_px,expected_px,length_ratio,length_class,confirmed_by_length,width_px,peak_sigma" ];
-      for ( var f = 0; f < paths.length; ++f )
+      try
       {
-         if ( opt.abort && opt.abort() )
+         for ( var f = 0; f < paths.length; ++f )
          {
-            opt.log( "stopped by the user after " + f + " of " + paths.length + " frames" );
-            break;
-         }
-         try
-         {
-            var r = processFrame( paths[f], theta, opt, coverage );
-            results.push( r );
-            if ( opt.onFrame ) opt.onFrame( r );
-            csv.push( '"' + baseName( paths[f] ) + '",' + r.trails + "," + r.rejected + "," + r.pixels + "," +
-                      r.sigPix.toPrecision( 4 ) + "," + r.seconds.toFixed( 1 ) );
-            var classes = {}, rows = [ [ r.detail.trails, "masked" ], [ r.detail.rejected, "reported" ] ];
-            for ( var rw = 0; rw < rows.length; ++rw )
-               for ( var ti = 0; ti < rows[rw][0].length; ++ti )
+            if ( opt.abort && opt.abort() )
+            {
+               opt.log( "stopped by the user after " + f + " of " + paths.length + " frames" );
+               break;
+            }
+            try
+            {
+               var found = null;
+               if ( pool )
+                  try
+                  {
+                     found = pool.result( f );
+                  }
+                  catch ( e )
+                  {
+                     opt.log( "** " + baseName( paths[f] ) + ": detection thread failed (" + e.message +
+                              "), detected in the main thread" );
+                  }
+               if ( found === false )
                {
-                  var t = rows[rw][0][ti], a = ( t.geometry.angle - theta + 630 ) % 180 - 90;
-                  if ( rw == 0 && t.lengthClass ) classes[t.lengthClass] = ( classes[t.lengthClass] || 0 ) + 1;
-                  if ( rw == 0 && t.confirmedByLength ) classes["confirmed by length"] = ( classes["confirmed by length"] || 0 ) + 1;
-                  tcsv.push( '"' + baseName( paths[f] ) + '",' + rows[rw][1] + "," + ( t.reason || "" ) + "," +
-                             a.toFixed( 2 ) + "," + Math.round( 2 * opt.binning * t.geometry.half ) + "," +
-                             Math.round( r.expectedLength ) + "," + ( t.lengthRatio ? t.lengthRatio.toFixed( 2 ) : "" ) + "," +
-                             ( t.lengthClass || "" ) + "," + ( t.confirmedByLength ? "yes" : "" ) + "," + opt.binning * t.width + "," + t.peak.toFixed( 1 ) );
+                  opt.log( "stopped by the user after " + f + " of " + paths.length + " frames" );
+                  break;
                }
-            var cl = Object.keys( classes ).map( function( k ) { return classes[k] + " " + k; } ).join( ", " );
-            opt.log( ( f + 1 ) + "/" + paths.length + " " + baseName( paths[f] ) + ": " + r.trails + " trails" +
-                     ( cl ? " (" + cl + ")" : "" ) + ", " + r.pixels + " px masked" +
-                     ( r.rejected ? ", " + r.rejected + " reported" : "" ) + " (" + r.seconds.toFixed( 1 ) + " s)" );
-         }
-         catch ( e )
-         {
-            failed.push( paths[f] );
-            opt.log( "** " + baseName( paths[f] ) + " left untouched: " + e.message );
+               var r = processFrame( paths[f], theta, opt, coverage, found );
+               results.push( r );
+               if ( opt.onFrame ) opt.onFrame( r );
+               csv.push( '"' + baseName( paths[f] ) + '",' + r.trails + "," + r.rejected + "," + r.pixels + "," +
+                         r.sigPix.toPrecision( 4 ) + "," + r.seconds.toFixed( 1 ) );
+               var classes = {}, rows = [ [ r.detail.trails, "masked" ], [ r.detail.rejected, "reported" ] ];
+               for ( var rw = 0; rw < rows.length; ++rw )
+                  for ( var ti = 0; ti < rows[rw][0].length; ++ti )
+                  {
+                     var t = rows[rw][0][ti], a = ( t.geometry.angle - theta + 630 ) % 180 - 90;
+                     if ( rw == 0 && t.lengthClass ) classes[t.lengthClass] = ( classes[t.lengthClass] || 0 ) + 1;
+                     if ( rw == 0 && t.confirmedByLength ) classes["confirmed by length"] = ( classes["confirmed by length"] || 0 ) + 1;
+                     tcsv.push( '"' + baseName( paths[f] ) + '",' + rows[rw][1] + "," + ( t.reason || "" ) + "," +
+                                a.toFixed( 2 ) + "," + Math.round( 2 * opt.binning * t.geometry.half ) + "," +
+                                Math.round( r.expectedLength ) + "," + ( t.lengthRatio ? t.lengthRatio.toFixed( 2 ) : "" ) + "," +
+                                ( t.lengthClass || "" ) + "," + ( t.confirmedByLength ? "yes" : "" ) + "," + opt.binning * t.width + "," + t.peak.toFixed( 1 ) );
+                  }
+               var cl = Object.keys( classes ).map( function( k ) { return classes[k] + " " + k; } ).join( ", " );
+               opt.log( ( f + 1 ) + "/" + paths.length + " " + baseName( paths[f] ) + ": " + r.trails + " trails" +
+                        ( cl ? " (" + cl + ")" : "" ) + ", " + r.pixels + " px masked" +
+                        ( r.rejected ? ", " + r.rejected + " reported" : "" ) + " (" + r.seconds.toFixed( 1 ) + " s)" );
+            }
+            catch ( e )
+            {
+               failed.push( paths[f] );
+               opt.log( "** " + baseName( paths[f] ) + " left untouched: " + e.message );
+            }
          }
       }
+      finally
+      {
+         if ( pool ) pool.stop();   // every thread joined, also on a stop or an error
+      }
+      opt.log( results.length + " frames in " + ( ( Date.now() - T0 ) / 1000 ).toFixed( 1 ) + " s" +
+               ( nth > 1 ? " (" + nth + " detection threads)" : "" ) );
       var cov = null;
       if ( coverage.count )
       {

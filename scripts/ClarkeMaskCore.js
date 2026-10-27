@@ -18,6 +18,11 @@
  *   x*cos(theta) + y*sin(theta) = d, its direction is (-sin(theta), cos(theta)),
  *   and u = -x*sin(theta) + y*cos(theta) is the position along it.
  *
+ * The namespace is built by ClarkeMaskCoreFactory(), which is self-contained:
+ * the engine sends its source code to the detection threads (Thread objects of
+ * PixInsight 1.9.5, each with a runtime of its own), where it builds the same
+ * namespace.
+ *
  * Detection (on a detection image, usually the 2x2 mean of the frame)
  *   1. Rectify along theta: for each distance d (1 px steps) and each segment
  *      of SEGMENT samples along u, sample bilinearly and take the median:
@@ -38,7 +43,7 @@
  * Heuristics, parameters and known limits: DETECTOR.md (keep it in sync).
  */
 
-var ClarkeMaskCore = ( function()
+function ClarkeMaskCoreFactory()
 {
    "use strict";
 
@@ -809,7 +814,7 @@ var ClarkeMaskCore = ( function()
    }
 
    return {
-      VERSION: "0.1.0",
+      VERSION: "0.2.0",
       DEFAULTS: DEFAULTS,
       binMean2: binMean2,
       normalAngle: normalAngle,
@@ -818,7 +823,9 @@ var ClarkeMaskCore = ( function()
       detectAll: detectAll,
       rasterize: rasterize
    };
-} )();
+}
+
+var ClarkeMaskCore = ClarkeMaskCoreFactory();
 
 if ( typeof module !== "undefined" && module.exports )
    module.exports = ClarkeMaskCore;

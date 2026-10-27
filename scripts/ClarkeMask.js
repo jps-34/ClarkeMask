@@ -7,7 +7,7 @@
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.1.0
+ * ClarkeMask.js  v0.2.0
  * Copyright (c) 2026 Jacques Pouyaud. MIT License (see LICENSE).
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
@@ -20,6 +20,7 @@
  * folder. Masking in place is the WBPP event script's job.
  *
  * v0.1.0: first version.
+ * v0.2.0: parallel detection on threads (PixInsight 1.9.5), detection threads setting.
  */
 
 
@@ -27,7 +28,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.1.0";
+var VERSION = "0.2.0";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
@@ -195,6 +196,17 @@ function buildTips()
                        "has a known length (sidereal drift during the exposure). Between the maximum angle and this limit, a straight " +
                        "trail is masked when its length matches with both ends inside the image; otherwise it is only reported. " +
                        "Default 7 deg. Needs the exposure time in the headers. Saved at once and used by the WBPP event script.</p>" ),
+      threads: L( "<p><b>Threads de détection.</b> Les brutes d'un groupe sont détectées en parallèle, une par thread ; " +
+                  "le masquage et l'enregistrement restent faits dans l'ordre. Mêmes résultats qu'en série.</p>" +
+                  "<p><b>Auto</b> (par défaut) : autant de threads que de processeurs permis par les préférences de PixInsight, " +
+                  "limité par la mémoire disponible (chaque thread garde une brute en mémoire). <b>1</b> : détection en série. " +
+                  "Nécessite PixInsight 1.9.5 ; en version antérieure, la détection est en série. Réglage enregistré aussitôt " +
+                  "et utilisé par le script d'événement de WBPP.</p>",
+                  "<p><b>Detection threads.</b> The frames of a group are detected in parallel, one per thread; masking and " +
+                  "saving are still done in order. Same results as in series.</p>" +
+                  "<p><b>Auto</b> (default): as many threads as the processors allowed by the PixInsight preferences, limited by " +
+                  "the available memory (each thread holds one frame in memory). <b>1</b>: serial detection. Needs PixInsight " +
+                  "1.9.5; with earlier versions the detection is serial. Saved at once and used by the WBPP event script.</p>" ),
       noData: L( "<p>Valeur écrite sous les masques dans les copies masquées.</p>" +
                  "<p><b>0</b> : pour PixInsight (ImageIntegration, WBPP), qui rejette les pixels à 0 des brutes (réjection basse " +
                  "« Clip low range » à 0, active par défaut dans WBPP).</p>" +
@@ -361,6 +373,23 @@ constructor()
    this.maxConfirmedControl.toolTip = TIPS.maxConfirmed;
    this.maxConfirmedControl.onValueUpdated = function( v ) { ClarkeMaskEngine.saveSettings( { maxConfirmedAngle: v } ); self.updateAngleNote(); };
 
+   this.threadsLabel = new Label( this );
+   this.threadsLabel.text = L( "Threads de détection :", "Detection threads:" );
+   this.threadsLabel.minWidth = labelWidth;
+   this.threadsLabel.textAlignment = TextAlignment.Right | TextAlignment.VertCenter;
+   this.threadsLabel.toolTip = TIPS.threads;
+   this.threadsSpin = new SpinBox( this );
+   this.threadsSpin.setRange( S.threads.min, S.threads.max );
+   this.threadsSpin.minimumValueText = "Auto";
+   this.threadsSpin.value = user.threads;
+   this.threadsSpin.toolTip = TIPS.threads;
+   this.threadsSpin.onValueUpdated = function( v ) { ClarkeMaskEngine.saveSettings( { threads: v } ); };
+   var threadsRow = new HorizontalSizer;
+   threadsRow.spacing = 6;
+   threadsRow.add( this.threadsLabel );
+   threadsRow.add( this.threadsSpin );
+   threadsRow.addStretch();
+
    this.angleNote = new Label( this );
    this.angleNote.useRichText = true;
    this.angleNote.wordWrapping = true;
@@ -422,6 +451,7 @@ constructor()
    this.settingsGroup.sizer.add( this.maxAngleControl );
    this.settingsGroup.sizer.add( this.maxConfirmedControl );
    this.settingsGroup.sizer.add( this.angleNote );
+   this.settingsGroup.sizer.add( threadsRow );
    this.settingsGroup.sizer.add( noDataRow );
    this.settingsGroup.sizer.add( outputRow );
 
@@ -876,6 +906,7 @@ resetSettings()
    var d = ClarkeMaskCore.DEFAULTS;
    this.maxAngleControl.setValue( d.maxAngle );
    this.maxConfirmedControl.setValue( d.maxConfirmedAngle );
+   this.threadsSpin.value = ClarkeMaskEngine.SETTINGS.threads.def;
    this.updateAngleNote();
    this.noDataCombo.currentItem = 0;
    this.outputEdit.text = "";

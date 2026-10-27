@@ -33,7 +33,8 @@ PACKAGE = {
     "desc": "Masks geostationary satellite trails in registered light frames, so that integration "
             "rejects them pixel by pixel. Runs inside WBPP as an event script, right after "
             "registration, or standalone from the Script menu. Never modifies the original or "
-            "calibrated frames. English or French interface.",
+            "calibrated frames. Parallel detection with PixInsight 1.9.5 and later. English or "
+            "French interface.",
 }
 NOTICE = "Copyright (c) 2026 Jacques Pouyaud. MIT License. Source: https://github.com/{user}/ClarkeMask"
 

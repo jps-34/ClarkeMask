@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0 (2026-10-27)
+* Parallel detection (PixInsight 1.9.5 and later): the frames of a group are detected on PJSR
+  threads, one per frame, while the main thread masks and saves them in order; same results as in
+  series (identical masks and reports on XISF float and FITS 16-bit frames), several times faster
+  on a multi-core machine. Setting **detection threads** (`ClarkeMask/threads`, Auto by default:
+  processors allowed by the platform, limited by the available memory; 1 = serial) in the dialog,
+  used by the WBPP event script. Stop acts during the detection. Serial with PixInsight 1.9.4.
+* Core: the namespace is built by `ClarkeMaskCoreFactory()`, whose source is sent to the threads.
+* Log: total time of each group and number of threads.
+* Masks written as 8-bit integer and the coverage map as 32-bit float, as intended (both were
+  written with the default 16-bit integer format).
+* Tests: `tests/run_group_pi.js` (a group in preview mode with a given number of threads) and
+  `tests/compare_runs.py` (two runs compared: reports, coverage, masks).
+
 ## 0.1.0 (2026-10-27)
 * First version: masking of geostationary satellite trails inside WBPP (event script) or from
   the ClarkeMask dialog, validated on real data (raw and calibrated). PixInsight update repository

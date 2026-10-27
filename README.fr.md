@@ -56,9 +56,18 @@ Nécessite la durée de pose dans les en-têtes.
 Les deux valeurs se règlent dans le dialogue ; elles sont enregistrées dans les réglages de
 PixInsight et utilisées par le script d'événement de WBPP.
 
+## Réglage : threads de détection
+
+Avec PixInsight 1.9.5 ou plus, les brutes d'un groupe sont détectées en parallèle, une par thread ;
+le masquage et l'enregistrement restent faits dans l'ordre, et les résultats sont les mêmes qu'en
+série. **Auto** (par défaut) utilise autant de threads que de processeurs permis dans les
+préférences de PixInsight, dans la limite de la mémoire disponible (chaque thread garde une brute
+en mémoire) ; **1** détecte en série. Se règle dans le dialogue, utilisé par le script d'événement
+de WBPP. Avec PixInsight 1.9.4, la détection est en série.
+
 ## Prérequis
 
-* PixInsight 1.9.4 ou plus.
+* PixInsight 1.9.4 ou plus ; 1.9.5 ou plus pour la détection en parallèle.
 * Des brutes registrées (monochromes ou couleur) avec une **solution astrométrique** : plate
   solving à l'acquisition, ou dans WBPP. Les brutes registrées par WBPP portent la solution de la
   brute de référence.

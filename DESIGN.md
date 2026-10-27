@@ -69,6 +69,25 @@ frames not masked there, and rejection statistics are computed on what remains.
 * A failing event script is reported as a warning and the pipeline carries on: errors must be
   logged clearly, and a frame that could not be processed must be left untouched.
 
+### Parallel detection
+
+PixInsight 1.9.5 runs JavaScript on `Thread` objects, each with a V8 runtime of its own (nothing
+shared, data passed by structured clone). The detection, the costly part (several seconds per frame on one core), runs
+there: one thread per frame reads it with `FileFormatInstance`, builds the detection image and runs
+`detectAll`; the main thread masks and saves the frames in order as their detections arrive
+(`ImageWindow` does not exist in a thread). Same code, so the same results as the serial path
+(checked: identical masks and reports, XISF float and FITS 16-bit). The core is rebuilt in each
+thread from the source of `ClarkeMaskCoreFactory`, with the few engine helpers it needs.
+
+* Threads: setting `ClarkeMask/threads`, 0 = automatic (processors allowed by the platform,
+  limited by the available memory, a frame and its buffers per thread), 1 = serial.
+* PixInsight 1.9.4 (no `Thread`): serial, unchanged.
+* A frame whose thread fails is detected again in the main thread. Stop: the threads poll an abort
+  flag between grids, and every thread is joined before the group ends.
+* An optional Python helper was considered and prototyped (branch `dev/python`): slower than the
+  threads, a second implementation to keep in sync, a dependency for users, and bit differences of
+  the system math library against V8's fdlibm. Dropped.
+
 ## 3. Standalone dialog
 
 A Script menu entry for frames registered outside WBPP, or for other stackers: same detection,
