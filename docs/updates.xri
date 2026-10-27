@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xri version="1.0">
+   <description>
+      <p>ClarkeMask: geostationary satellite trail masks for WBPP integration.</p>
+      <p>Add https://jps-34.github.io/ClarkeMask/ under Resources &gt; Updates &gt; Manage Repositories.</p>
+   </description>
+   <platform os="all" arch="noarch" version="1.9.4:1.9.99">
+      <package fileName="ClarkeMask-0.1.0-PI194.zip" sha1="d1876273cb83e484cdb63803966c9a0ae3fd9555" type="script" releaseDate="20261027" serverURL="https://jps-34.github.io/ClarkeMask/">
+         <title>ClarkeMask 0.1.0 (PixInsight 1.9.4 and later)</title>
+         <description>
+            <p>Masks geostationary satellite trails in registered light frames, so that integration rejects them pixel by pixel. Runs inside WBPP as an event script, right after registration, or standalone from the Script menu. Never modifies the original or calibrated frames. English or French interface.</p>
+            <p>Copyright (c) 2026 Jacques Pouyaud. MIT License. Source: https://github.com/jps-34/ClarkeMask</p>
+         </description>
+      </package>
+   </platform>
+</xri>

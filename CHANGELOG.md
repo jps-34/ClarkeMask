@@ -1,0 +1,49 @@
+# Changelog
+
+## 0.1.0 (2026-10-27)
+* First version: masking of geostationary satellite trails inside WBPP (event script) or from
+  the ClarkeMask dialog, validated on real data (raw and calibrated). PixInsight update repository
+  built in `docs/` (unsigned), served at `https://jps-34.github.io/ClarkeMask/` once published.
+* Project skeleton: READMEs, design notes, maintenance notes, update repository builder.
+* Numeric core (`scripts/ClarkeMaskCore.js`): trail detection along a given direction and mask
+  rasterization at full resolution; node test harness in `tests/`.
+* PixInsight layer (`scripts/ClarkeMaskEngine.js`): trail direction from the astrometric
+  solution, once per group; 0 written under the masks in every channel, frame replaced through a
+  temporary file; one compressed mask file per frame, CSV report; mono and RGB.
+* Cost of the masks per group: score line (worst case and mean SNR kept), table of exposure and
+  SNR kept per number of frames lost with the share of the field, map of the exposure fraction
+  kept (`coverage.xisf`, `coverage.csv`).
+* Preview (`dryRun`): masks, report and predicted cost written, frames left untouched.
+* `DETECTOR.md`: every heuristic of the detector, its parameter, value, unit, purpose and limits;
+  what decides, what only shapes the mask, what is only reported.
+* Angle search: detection also on grids tilted up to 2.25 deg either side of the belt direction
+  (inclined geosynchronous objects), one decision per trail, filter against false trails made of
+  crossings of dense parallel trails, explicit angle criterion (`maxAngle`, trails beyond reported
+  as `angle`), masks that follow the fitted line, merged pieces judged one by one when bent.
+* User setting **maximum angle from the belt** (`ClarkeMask/maxAngle`, default 2.5 deg), read by
+  the engine and the WBPP event script; the tilted grids follow it. Explained in the READMEs.
+* Length diagnostic: expected length of a geosynchronous trail from the exposure and the
+  astrometric solution, ratio and class per trail (`single`, `overlap`, `cut`, `partial`), counts
+  in the log, one line per trail in `trails.csv`. Reported, not a criterion (DETECTOR.md 6.1).
+* Confirmation by length: beyond the maximum angle and up to `ClarkeMask/maxConfirmedAngle`
+  (user setting, default 7 deg), a straight trail of about one expected length with both ends free
+  is masked as a geosynchronous object; marked "confirmed by length" in the log and `trails.csv`.
+  Beyond the maximum angle the search uses coarser grids (1.5 deg), enough for the confirmation.
+* Dialog (`scripts/ClarkeMask.js`, *Script > Utilities > ClarkeMask*), English or French: list of
+  registered frames with their results, the two angle settings (saved at once, used by the WBPP
+  event script), value under the masks (0 or NaN), output folder; Preview (masks, report, cost)
+  and Apply (masked copies `<frame>_cm.xisf`, inputs never modified); frame with its mask as an
+  overlay, coverage map; path of the WBPP event script; Reset (standard icon, bottom left), Stop.
+* Engine: masked copies into a folder, NaN as the value under the masks, NaN treated as no data,
+  hooks for the dialog (stop between frames, per-frame result, UI events during detection).
+* WBPP event script run on its own (Script > Execute Script File): it now says, in English and
+  French, that it must be selected in WBPP (Pipeline tab, Event Script box), instead of doing
+  nothing silently.
+* Dialog: summary of the results in the interface language (totals, worst case, cost per number
+  of frames lost, expected length), shorter status texts, coverage map window named
+  `ClarkeMask_coverage`, note when the maximum angle is at or above the confirmation limit.
+* Faster detection (about x1.7): segments wholly outside the image skipped, sliding median for the
+  perpendicular high-pass (same results), per-pixel noise estimated on one row of cells in eight
+  (masks unchanged on the frames tested).
+* WBPP event script (`scripts/ClarkeMask-WBPP.js`): masks each light group right after
+  registration, before local normalization and integration; own log in the WBPP output.

@@ -1,0 +1,24 @@
+# Signing keys: NEVER commit them
+*.xssk
+# Image data: never commit (headers carry location data)
+*.xisf
+*.fits
+*.fit
+*.fts
+*.xdrz
+*.xnml
+*.bin
+# local work
+__pycache__/
+.DS_Store
+.claude/
+
+# Credentials and keys: never commit
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+.env
+.env.*
+.git-credentials
+*.token
