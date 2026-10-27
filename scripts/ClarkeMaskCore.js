@@ -1,6 +1,9 @@
 /*
  * ClarkeMaskCore.js
- * Copyright (c) 2026 Jacques Pouyaud. MIT License (see LICENSE).
+ * Copyright (c) 2026 Jacques Pouyaud.
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Free software under the GNU General Public License, version 3 or (at your
+ * option) any later version, WITHOUT ANY WARRANTY; see LICENSE.
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
  * Numeric core of ClarkeMask: detection of geostationary satellite trails and
@@ -814,7 +817,7 @@ function ClarkeMaskCoreFactory()
    }
 
    return {
-      VERSION: "0.2.1",
+      VERSION: "0.2.2",
       DEFAULTS: DEFAULTS,
       binMean2: binMean2,
       normalAngle: normalAngle,

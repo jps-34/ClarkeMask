@@ -36,7 +36,7 @@ PACKAGE = {
             "calibrated frames. Parallel detection with PixInsight 1.9.5 and later. English or "
             "French interface.",
 }
-NOTICE = "Copyright (c) 2026 Jacques Pouyaud. MIT License. Source: https://github.com/{user}/ClarkeMask"
+NOTICE = "Copyright (c) 2026 Jacques Pouyaud. GNU GPL v3 or later. Source: https://github.com/{user}/ClarkeMask"
 
 
 def script_version(path):

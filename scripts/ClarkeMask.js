@@ -7,8 +7,11 @@
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.1
- * Copyright (c) 2026 Jacques Pouyaud. MIT License (see LICENSE).
+ * ClarkeMask.js  v0.2.2
+ * Copyright (c) 2026 Jacques Pouyaud.
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Free software under the GNU General Public License, version 3 or (at your
+ * option) any later version, WITHOUT ANY WARRANTY; see LICENSE.
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
  * Dialog of ClarkeMask. The detection lives in ClarkeMaskCore.js, the
@@ -22,6 +25,7 @@
  * v0.1.0: first version.
  * v0.2.0: parallel detection on threads (PixInsight 1.9.5), detection threads setting.
  * v0.2.1: trail direction checked against the trails (mirrored astrometric solutions).
+ * v0.2.2: licence changed to GPL-3.0-or-later (0.2.1 and earlier: MIT).
  */
 
 
@@ -29,7 +33,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.1";
+var VERSION = "0.2.2";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );

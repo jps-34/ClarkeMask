@@ -1,6 +1,9 @@
 /*
  * ClarkeMaskEngine.js
- * Copyright (c) 2026 Jacques Pouyaud. MIT License (see LICENSE).
+ * Copyright (c) 2026 Jacques Pouyaud.
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ * Free software under the GNU General Public License, version 3 or (at your
+ * option) any later version, WITHOUT ANY WARRANTY; see LICENSE.
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
  * PixInsight layer of ClarkeMask: reads frames, takes the trail direction

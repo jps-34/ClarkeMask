@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 (2026-10-27)
+* Licence changed from MIT to the GNU General Public License, version 3 or later
+  (GPL-3.0-or-later). Versions up to 0.2.1 remain available under the MIT License. No change to
+  the behaviour.
+* README: credit request for reuse of the method or the code.
+
 ## 0.2.1 (2026-10-27)
 * Trail direction checked against the trails: a mirrored astrometric solution (wrong parity,
   shown as "flipped" by PixInsight, seen with some WCS written at acquisition) gave the mirrored
