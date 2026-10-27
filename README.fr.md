@@ -23,7 +23,9 @@ brutes propres à cet endroit : le nombre de valeurs varie d'un pixel à l'autre
 * **Détection** : la direction des traînées vient de la solution astrométrique de la brute
   (déclinaison constante) ; chaque traînée est suivie segment par segment, sa largeur tirée de son
   propre profil. Critères et paramètres : [DETECTOR.md](DETECTOR.md) (en anglais). Nécessite une
-  solution astrométrique (plate solving à l'acquisition ou dans WBPP).
+  solution astrométrique (plate solving à l'acquisition, ou ImageSolver sur la brute de référence).
+  Une solution en miroir (« flipped », constatée avec certains WCS écrits à l'acquisition) est détectée
+  d'après les traînées elles-mêmes et corrigée.
 * **Un fichier masque par brute**, gardé dans un dossier `ClarkeMask` de la sortie de WBPP pour
   contrôle.
 * Brutes monochromes comme couleur (OSC).
@@ -69,7 +71,9 @@ de WBPP. Avec PixInsight 1.9.4, la détection est en série.
 
 * PixInsight 1.9.4 ou plus ; 1.9.5 ou plus pour la détection en parallèle.
 * Des brutes registrées (monochromes ou couleur) avec une **solution astrométrique** : plate
-  solving à l'acquisition, ou dans WBPP. Les brutes registrées par WBPP portent la solution de la
+  solving à l'acquisition (WCS écrit par le logiciel d'acquisition), ou brute de référence résolue
+  avec ImageSolver avant WBPP. L'option de plate solving de WBPP n'aide pas ici : elle ne résout
+  que les masters, après l'intégration. Les brutes registrées par WBPP portent la solution de la
   brute de référence.
 * Pour la confirmation par la longueur : la durée de pose dans les en-têtes (`EXPTIME` ou
   `EXPOSURE`).
@@ -111,6 +115,12 @@ jamais modifiées :
 
 Pour visualiser le résultat d'un passage WBPP, choisir `<sortie WBPP>/ClarkeMask/groupNN` comme
 dossier de sortie et ajouter les brutes registrées correspondantes.
+
+## Remerciements
+
+Merci à [nico1038](https://telescopius.com/profile/nico1038) pour ses tests sur ses propres données
+et pour le rapport précis à l'origine de la version 0.2.1 : des brutes de référence dont PixInsight
+convertit la solution astrométrique en miroir (« flipped ») après un retournement au méridien.
 
 ## Licence
 

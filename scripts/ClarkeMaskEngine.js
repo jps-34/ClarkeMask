@@ -385,35 +385,42 @@ var ClarkeMaskEngine = ( function()
 
    // ------------------------------------------------------------- threads
 
+   function readDetectionImage( path, binning )
+   {
+      // Reads a frame without an image window (usable in a thread): its
+      // detection image, size and exposure. {det, width, height, exposure}.
+      var img = new Image, exposure = 0;
+      try
+      {
+         var f = new FileFormatInstance( new FileFormat( File.extractExtension( path ), true /*read*/, false /*write*/ ) );
+         if ( f.open( path, "" ).length < 1 )
+            throw new Error( "Unable to open " + path );
+         try
+         {
+            try { exposure = exposureFromKeywords( f.keywords ); } catch ( e ) {}   // format without keywords
+            if ( !f.readImage( img ) )
+               throw new Error( "Unable to read " + path );
+         }
+         finally
+         {
+            f.close();
+         }
+         return { det: detectionImage( img, binning ), width: img.width, height: img.height, exposure: exposure };
+      }
+      finally
+      {
+         img.free();
+      }
+   }
+
    function frameDetection( d )
    {
       // Body of a detection thread: reads the frame, builds the detection
       // image and runs detectAll. It runs in a runtime of its own, where only
       // the core and the functions of threadSource() exist (no ImageWindow,
       // nothing of the calling script). d: {path, theta, detect, sky, binning}.
-      var t0 = Date.now(), img = new Image, exposure = 0, det, W, H;
-      try
-      {
-         var f = new FileFormatInstance( new FileFormat( File.extractExtension( d.path ), true /*read*/, false /*write*/ ) );
-         if ( f.open( d.path, "" ).length < 1 )
-            throw new Error( "Unable to open " + d.path );
-         try
-         {
-            try { exposure = exposureFromKeywords( f.keywords ); } catch ( e ) {}   // format without keywords
-            if ( !f.readImage( img ) )
-               throw new Error( "Unable to read " + d.path );
-         }
-         finally
-         {
-            f.close();
-         }
-         W = img.width; H = img.height;
-         det = detectionImage( img, d.binning );
-      }
-      finally
-      {
-         img.free();
-      }
+      var t0 = Date.now(), fr = readDetectionImage( d.path, d.binning );
+      var det = fr.det, W = fr.width, H = fr.height, exposure = fr.exposure;
       var dopt = detectOptions( d.detect, d.sky, exposure, d.binning );
       dopt.onGrid = function( i )
       {
@@ -426,17 +433,90 @@ var ClarkeMaskEngine = ( function()
                seconds: ( Date.now() - t0 ) / 1000 };
    }
 
-   function threadSource()
+   function directionScores( d )
    {
-      // Source code of a detection thread: the core, the helpers that
-      // frameDetection() calls, and frameDetection() itself as the value of
-      // the script (a Thread calls it with the cloned data).
+      // Body of a direction check (a thread, or the main thread): runs
+      // detect() on the frame along each angle of d.thetas and returns, per
+      // angle, {trails, strength} (number of trails, sum of their strengths).
+      // d: {path, thetas, detect, binning}.
+      var det = readDetectionImage( d.path, d.binning ).det, out = [];
+      for ( var i = 0; i < d.thetas.length; ++i )
+      {
+         var r = ClarkeMaskCore.detect( det.data, det.w, det.h, d.thetas[i], d.detect ), s = 0;
+         for ( var k = 0; k < r.trails.length; ++k ) s += r.trails[k].strength;
+         out.push( { trails: r.trails.length, strength: s } );
+      }
+      return out;
+   }
+
+   function threadSource( body )
+   {
+      // Source code of a thread: the core, the helpers that the bodies call,
+      // and body itself as the value of the script (a Thread calls it with
+      // the cloned data).
       var src = [ "var ClarkeMaskCore = ( " + ClarkeMaskCoreFactory.toString() + " )();" ];
-      var helpers = [ channelData, detectionImage, exposureFromKeywords, expectedLength, detectOptions ];
+      var helpers = [ channelData, detectionImage, exposureFromKeywords, expectedLength, detectOptions, readDetectionImage ];
       for ( var i = 0; i < helpers.length; ++i )
          src.push( helpers[i].toString() );
-      src.push( "( " + frameDetection.toString() + " )" );
+      src.push( "( " + body.toString() + " )" );
       return src.join( "\n" );
+   }
+
+   function checkDirection( paths, theta, opt )
+   {
+      // A mirrored astrometric solution (wrong parity, shown as "flipped" by
+      // PixInsight) gives 180 - theta instead of theta. Detects along both
+      // directions on up to three frames of the group (first, middle, last),
+      // on threads when available, and tells where the trails are:
+      // {theta, mirrored, checked, found, frames, solution, mirror}.
+      var mirror = ( 180 - theta ) % 180, gap = Math.abs( mirror - theta ) % 180;
+      if ( Math.min( gap, 180 - gap ) <= opt.detect.maxAngle )   // both searched by the same grids anyway
+         return { theta: theta, mirrored: false, checked: false };
+      var picks = [], scores = [];
+      [ 0, paths.length >> 1, paths.length - 1 ].forEach( function( i ) { if ( picks.indexOf( i ) < 0 ) picks.push( i ); } );
+      var data = function( i ) { return { thetas: [ theta, mirror ], detect: opt.detect, binning: opt.binning, path: paths[i] }; };
+      if ( threadCount( opt, paths ) > 1 )
+      {
+         var src = threadSource( directionScores ), threads = [];
+         try
+         {
+            for ( var k = 0; k < picks.length; ++k )
+            {
+               var t = new Thread( src, data( picks[k] ) );
+               t.start();
+               threads.push( t );
+            }
+            for ( var w = 0; w < threads.length; ++w )
+            {
+               while ( !threads[w].wait( 100 ) )
+                  if ( opt.onProgress ) opt.onProgress();
+               if ( !threads[w].error ) scores.push( threads[w].result );
+            }
+         }
+         finally
+         {
+            for ( var j = 0; j < threads.length; ++j ) threads[j].wait();   // all joined, also on an error
+         }
+      }
+      else
+         for ( var k2 = 0; k2 < picks.length; ++k2 )
+            try
+            {
+               scores.push( directionScores( data( picks[k2] ) ) );
+               if ( opt.onProgress ) opt.onProgress();
+            }
+            catch ( e ) {}
+      var a = { trails: 0, strength: 0 }, b = { trails: 0, strength: 0 };
+      for ( var q = 0; q < scores.length; ++q )
+      {
+         a.trails += scores[q][0].trails; a.strength += scores[q][0].strength;
+         b.trails += scores[q][1].trails; b.strength += scores[q][1].strength;
+      }
+      // the mirror wins only clearly: several trails, and more than twice the
+      // strength found along the solution direction
+      var mirrored = b.trails >= 2 && b.strength > 2 * a.strength;
+      return { theta: mirrored ? mirror : theta, mirrored: mirrored, checked: scores.length > 0,
+               found: a.trails + b.trails > 0, frames: scores.length, solution: a, mirror: b };
    }
 
    function threadCount( opt, paths )
@@ -475,7 +555,7 @@ var ClarkeMaskEngine = ( function()
       // its detection (frameDetection), false when idle() returns true (stop
       // requested), or throws its error. stop() aborts and joins the running
       // threads: it must be called in every case.
-      var src = threadSource(), next = 0, running = [], done = {};
+      var src = threadSource( frameDetection ), next = 0, running = [], done = {};
       function refill()
       {
          for ( var k = running.length - 1; k >= 0; --k )
@@ -626,23 +706,46 @@ var ClarkeMaskEngine = ( function()
                ( det.maxConfirmedAngle > det.maxAngle ? ", and up to " + det.maxConfirmedAngle + " deg when their " +
                  "length confirms a geosynchronous object (" + src.maxConfirmedAngle + ")" : "" ) +
                "; other straight trails are reported, not masked" );
-      var candidates = ( opt.reference ? [ opt.reference ] : [] ).concat( paths ), sky = null;
+      var candidates = ( opt.reference ? [ opt.reference ] : [] ).concat( paths ), sky = null, skyFrame = "";
+      var fromSolution = theta === null;
       for ( var i = 0; sky === null && i < candidates.length; ++i )
       {
          try { sky = geometryFromFile( candidates[i] ); } catch ( e ) { sky = null; }
          if ( sky !== null )
          {
             if ( theta === null ) theta = sky.theta;
+            skyFrame = baseName( candidates[i] );
             opt.log( "trail direction " + theta.toFixed( 3 ) + " deg, scale " + sky.scale.toFixed( 3 ) +
-                     " arcsec/px, declination " + sky.dec.toFixed( 2 ) + " deg, from " + baseName( candidates[i] ) );
+                     " arcsec/px, declination " + sky.dec.toFixed( 2 ) + " deg, from " + skyFrame );
          }
       }
       opt.sky = sky;
+      if ( fromSolution && theta !== null && paths.length > 0 )
+      {
+         // the direction of the solution, checked against the trails themselves
+         var chk = checkDirection( paths, theta, opt ), mirrorText = ( ( 180 - theta ) % 180 ).toFixed( 3 );
+         if ( chk.mirrored )
+         {
+            opt.log( "** the astrometric solution of " + skyFrame + " looks mirrored (flipped): on " + chk.frames +
+                     " frames, " + chk.mirror.trails + " trails along " + mirrorText + " deg (its mirror) and " +
+                     chk.solution.trails + " along " + theta.toFixed( 3 ) + " deg; trail direction set to " + mirrorText +
+                     " deg. Solving that frame again with ImageSolver gives it a correct solution" );
+            theta = chk.theta;
+         }
+         else if ( chk.checked && chk.found )
+            opt.log( "direction checked on " + chk.frames + " frames: " + chk.solution.trails + " trails along it, " +
+                     chk.mirror.trails + " along its mirror " + mirrorText + " deg" );
+         else if ( chk.checked )
+            opt.log( "** no trail along " + theta.toFixed( 3 ) + " deg nor along its mirror " + mirrorText + " deg in the " +
+                     chk.frames + " frames checked: if these frames do show trails, check the astrometric solution of " +
+                     skyFrame );
+      }
       if ( theta === null )
       {
          opt.log( "** no astrometric solution in this group: frames left untouched. ClarkeMask needs one to know " +
-                  "the trail direction: plate-solve at acquisition, enable plate solving in WBPP, or solve the " +
-                  "reference frame with ImageSolver, then run again" );
+                  "the trail direction: let the acquisition software write one (WCS), or solve the reference frame " +
+                  "with ImageSolver, then run again (the plate solving of WBPP only solves the masters, after " +
+                  "integration)" );
          return { theta: null, results: [], failed: paths.slice(), coverage: null };
       }
       if ( opt.outputDir && !File.directoryExists( opt.outputDir ) )

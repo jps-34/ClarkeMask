@@ -110,8 +110,11 @@ several pixels wide, nothing is lost); the mask is written at full resolution on
    its solution (verified with WBPP, plate solving off, source frames solved at acquisition), so
    the direction is computed once per group, from the reference frame first. **An astrometric
    solution is required, by design** (decided with the author: plate solving is standard practice
-   today). Without one, the group is left untouched and the log says how to get one (plate solving
-   at acquisition, in WBPP, or with ImageSolver). No fallback direction is planned.
+   today). Without one, the group is left untouched and the log says how to get one (WCS written
+   at acquisition, or ImageSolver on the reference frame: the plate solving of WBPP only solves
+   the masters, after integration). The direction is checked against the trails, which corrects
+   mirrored solutions (DETECTOR.md 3.2). A direction measured from the data when there is no
+   solution is planned.
 2. **Rectify and take segment medians**: for each distance to the line through the centre (1 px
    steps) and each segment along the trail, bilinear samples and their median. Stars are
    rejected, continuous trails kept. Pixels at 0 (no data) are ignored.

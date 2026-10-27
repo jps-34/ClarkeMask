@@ -71,9 +71,18 @@ noise divided by 2: the ratio has to be measured, not assumed.
   either side in right ascension, converted to pixels; the normal to that chord is `theta`.
 * Computed **once per group**, from the registration reference frame first, then from the first
   frame that has a solution. Registered frames share the reference grid and carry its solution.
+* **Checked against the trails.** A mirrored solution (wrong parity, shown as "flipped" by
+  PixInsight; seen with WCS written at acquisition and converted on loading) gives `180 - theta`
+  instead of `theta`, and the whole group is then searched in a wrong direction. The engine runs
+  `detect()` along `theta` and along `180 - theta` on up to three frames of the group (first,
+  middle, last). The mirror is used only when it clearly wins: at least 2 trails, and more than
+  twice the summed strength found along `theta`; the log says so. When neither direction shows a
+  trail, the log says so too. Skipped when the two directions are within `maxAngle` of each other
+  (the same grids search both).
 * **An astrometric solution is required, by design.** No solution in the group: nothing is
-  masked, and the log says how to get one (plate solving at acquisition, in WBPP, or with
-  ImageSolver). There is no fallback direction.
+  masked, and the log says how to get one (WCS written at acquisition, or ImageSolver on the
+  reference frame; the plate solving of WBPP only solves the masters, after integration). There
+  is no fallback direction yet.
 * Assumption: one direction for the whole field. Lines of constant declination are slightly
   curved in the image on wide fields or far from the celestial equator; the segment test below
   absorbs small deviations (section 3.4).
@@ -206,7 +215,7 @@ noise divided by 2: the ratio has to be measured, not assumed.
 | Parameter | Value | Unit | Role | Decides / shapes |
 |---|---|---|---|---|
 | `binning` | 2 | | detection image binning | |
-| `theta` | from the astrometric solution | deg | trail direction | decides (direction) |
+| `theta` | from the astrometric solution, or its mirror when the trails say so | deg | trail direction | decides (direction) |
 | `segment` | 64 | samples | cell length along the trail | decides (star rejection, angle tolerance) |
 | `minValid` | 0.5 | fraction | valid samples for a cell | |
 | `highPass` | 31 | px | perpendicular background window | decides (nebula rejection) |
@@ -278,6 +287,8 @@ For each frame the report gives every trail with: centre `d`, length, median wid
 * **Trails further than `maxAngle` from the belt direction** (more inclined geosynchronous
   objects) are reported, not masked.
 * **No astrometric solution**: the group is left untouched (a solution is required by design).
+* **Wrong solution other than a mirror** (for instance from another field): not corrected; the
+  log reports when no trail is found along the direction nor along its mirror.
 * **Faint trails below the core threshold** are not masked; their wings are, when the trail itself
   is detected.
 * **Single direction per field**: on very wide fields, constant-declination lines curve; not

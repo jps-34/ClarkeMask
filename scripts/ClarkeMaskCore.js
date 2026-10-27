@@ -814,7 +814,7 @@ function ClarkeMaskCoreFactory()
    }
 
    return {
-      VERSION: "0.2.0",
+      VERSION: "0.2.1",
       DEFAULTS: DEFAULTS,
       binMean2: binMean2,
       normalAngle: normalAngle,

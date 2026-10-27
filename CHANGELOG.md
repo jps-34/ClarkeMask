@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1 (2026-10-27)
+* Trail direction checked against the trails: a mirrored astrometric solution (wrong parity,
+  shown as "flipped" by PixInsight, seen with some WCS written at acquisition) gave the mirrored
+  direction, and nothing was masked in the whole group. The engine now detects along the
+  direction and its mirror on up to three frames and uses the one where the trails are, with a
+  line in the log; when neither shows a trail, the log says so instead of masking nothing
+  silently. Reported by [nico1038](https://telescopius.com/profile/nico1038), thanks.
+* Documentation and messages: the plate solving of WBPP only solves the masters, after
+  integration; the frames need a WCS written at acquisition, or a reference solved with
+  ImageSolver.
+
 ## 0.2.0 (2026-10-27)
 * Parallel detection (PixInsight 1.9.5 and later): the frames of a group are detected on PJSR
   threads, one per frame, while the main thread masks and saves them in order; same results as in

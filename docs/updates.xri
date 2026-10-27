@@ -5,8 +5,8 @@
       <p>Add https://jps-34.github.io/ClarkeMask/ under Resources &gt; Updates &gt; Manage Repositories.</p>
    </description>
    <platform os="all" arch="noarch" version="1.9.4:1.9.99">
-      <package fileName="ClarkeMask-0.2.0-PI194.zip" sha1="c84d94e9b279e07930edeaf26674c97aaf5ee4c0" type="script" releaseDate="20261027" serverURL="https://jps-34.github.io/ClarkeMask/">
-         <title>ClarkeMask 0.2.0 (PixInsight 1.9.4 and later)</title>
+      <package fileName="ClarkeMask-0.2.1-PI194.zip" sha1="d61a2e181917638205ce2e9de63a69365c49613d" type="script" releaseDate="20261027" serverURL="https://jps-34.github.io/ClarkeMask/">
+         <title>ClarkeMask 0.2.1 (PixInsight 1.9.4 and later)</title>
          <description>
             <p>Masks geostationary satellite trails in registered light frames, so that integration rejects them pixel by pixel. Runs inside WBPP as an event script, right after registration, or standalone from the Script menu. Never modifies the original or calibrated frames. Parallel detection with PixInsight 1.9.5 and later. English or French interface.</p>
             <p>Copyright (c) 2026 Jacques Pouyaud. MIT License. Source: https://github.com/jps-34/ClarkeMask</p>

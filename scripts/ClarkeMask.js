@@ -7,7 +7,7 @@
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.0
+ * ClarkeMask.js  v0.2.1
  * Copyright (c) 2026 Jacques Pouyaud. MIT License (see LICENSE).
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
@@ -21,6 +21,7 @@
  *
  * v0.1.0: first version.
  * v0.2.0: parallel detection on threads (PixInsight 1.9.5), detection threads setting.
+ * v0.2.1: trail direction checked against the trails (mirrored astrometric solutions).
  */
 
 
@@ -28,7 +29,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.0";
+var VERSION = "0.2.1";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
@@ -809,10 +810,10 @@ renderSummary( res, lines, total )
                       "Expected length of a geosynchronous trail: " + Math.round( r0.expectedLength ) + " px (" + r0.exposure + " s exposure)." ) );
    }
    if ( res && res.theta === null )
-      out.push( "<b>" + L( "Pas de solution astrométrique : rien n'a été masqué. Résoudre les brutes (à l'acquisition, dans WBPP ou avec " +
-                           "ImageSolver) puis relancer.",
-                           "No astrometric solution: nothing was masked. Plate-solve the frames (at acquisition, in WBPP or with " +
-                           "ImageSolver), then run again." ) + "</b>" );
+      out.push( "<b>" + L( "Pas de solution astrométrique : rien n'a été masqué. Résoudre les brutes (WCS écrit à l'acquisition, ou " +
+                           "ImageSolver sur la référence) puis relancer. Le plate solving de WBPP ne résout que les masters.",
+                           "No astrometric solution: nothing was masked. Plate-solve the frames (WCS written at acquisition, or " +
+                           "ImageSolver on the reference), then run again. The plate solving of WBPP only solves the masters." ) + "</b>" );
    if ( res && res.failed.length > 0 && res.theta !== null )
       out.push( "<b>" + L( res.failed.length + " brute(s) laissée(s) intacte(s) après une erreur (voir la console).",
                            res.failed.length + " frame(s) left untouched after an error (see the console)." ) + "</b>" );

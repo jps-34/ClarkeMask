@@ -21,7 +21,8 @@ clean at that place, so the number of values varies from pixel to pixel.
 * **Detection**: the trail direction comes from the frame's astrometric solution (constant
   declination); each trail is followed segment by segment, its width taken from its own profile.
   Criteria and parameters: [DETECTOR.md](DETECTOR.md). Requires an astrometric solution (plate
-  solving at acquisition or in WBPP).
+  solving at acquisition, or ImageSolver on the reference frame). A mirrored solution ("flipped",
+  as seen with some WCS written at acquisition) is detected from the trails themselves and corrected.
 * **One mask file per frame**, kept in a `ClarkeMask` folder of the WBPP output for checking.
 * Mono and colour (OSC) frames alike.
 * **Cost of the masks**: masking loses exposure, not signal. A score line gives the worst case
@@ -61,8 +62,10 @@ the WBPP event script. With PixInsight 1.9.4 the detection is serial.
 ## Requirements
 
 * PixInsight 1.9.4 or later; 1.9.5 or later for the parallel detection.
-* Registered light frames (mono or colour) with an **astrometric solution**: plate solving at
-  acquisition, or in WBPP. Frames registered by WBPP carry the solution of the reference frame.
+* Registered light frames (mono or colour) with an **astrometric solution**: a WCS written by the
+  acquisition software, or the reference frame solved with ImageSolver before WBPP. Frames
+  registered by WBPP carry the solution of the reference frame. The plate solving option of WBPP
+  does not help here: it only solves the masters, after integration.
 * For the confirmation by length: the exposure time in the headers (`EXPTIME` or `EXPOSURE`).
 
 ## Installation
@@ -99,6 +102,12 @@ modified:
 
 To view the result of a WBPP run, choose `<WBPP output>/ClarkeMask/groupNN` as the output folder
 and add the corresponding registered frames.
+
+## Acknowledgements
+
+Thanks to [nico1038](https://telescopius.com/profile/nico1038) for testing ClarkeMask on real data
+and for the precise report behind version 0.2.1: reference frames whose astrometric solution
+PixInsight converts as mirrored ("flipped") after a meridian flip.
 
 ## License
 
