@@ -3,6 +3,9 @@
 Notes for the author. Nothing here is needed to use the script. Same organisation as CommonCrop
 and Badassium238.
 
+Python is used only by the maintenance tools of `tools/` and `tests/`, on the author's machine: it is never
+packaged, installed or run by the script.
+
 ## 1. Repositories
 
 * **Development**: the private forge repository. Work happens on `dev/<topic>` branches, merged

@@ -24,7 +24,7 @@ brutes propres à cet endroit : le nombre de valeurs varie d'un pixel à l'autre
   (déclinaison constante) ; chaque traînée est suivie segment par segment, sa largeur tirée de son
   propre profil. Critères et paramètres : [DETECTOR.md](DETECTOR.md) (en anglais). Nécessite une
   solution astrométrique (plate solving à l'acquisition, ou ImageSolver sur la brute de référence).
-  Une solution en miroir (« flipped », constatée avec certains WCS écrits à l'acquisition) est détectée
+  Une solution en miroir (« flipped », constatée avec certains WCS écrits à l'acquisition et convertis par PixInsight avant la 1.9.6) est détectée
   d'après les traînées elles-mêmes et corrigée.
 * **Un fichier masque par brute**, gardé dans un dossier `ClarkeMask` de la sortie de WBPP pour
   contrôle.

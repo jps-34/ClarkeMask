@@ -22,7 +22,7 @@ clean at that place, so the number of values varies from pixel to pixel.
   declination); each trail is followed segment by segment, its width taken from its own profile.
   Criteria and parameters: [DETECTOR.md](DETECTOR.md). Requires an astrometric solution (plate
   solving at acquisition, or ImageSolver on the reference frame). A mirrored solution ("flipped",
-  as seen with some WCS written at acquisition) is detected from the trails themselves and corrected.
+  as seen with some WCS written at acquisition and converted by PixInsight before 1.9.6) is detected from the trails themselves and corrected.
 * **One mask file per frame**, kept in a `ClarkeMask` folder of the WBPP output for checking.
 * Mono and colour (OSC) frames alike.
 * **Cost of the masks**: masking loses exposure, not signal. A score line gives the worst case

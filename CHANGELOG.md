@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5 (2026-10-30)
+* Deprecated `directory`, `fileNames`, `processEvents()` and `getEnvironmentVariable()` replaced by
+  `directoryPath`, `filePaths`, `CoreApplication.processEvents()` and `System.getEnvironmentVariable()`,
+  with the older names kept as a fallback where needed. No change to the behaviour.
+* Docs: the conversion of a WCS into a mirrored solution concerns PixInsight before 1.9.6.
+
 ## 0.2.4 (2026-10-27)
 * Menu: the script moves from *Script > Utilities* to *Script > JPS*, the folder that groups
   the PixInsight scripts of Jacques Pouyaud. No change to the behaviour.

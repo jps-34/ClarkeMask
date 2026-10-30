@@ -7,7 +7,7 @@
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.4
+ * ClarkeMask.js  v0.2.5
  * Copyright (c) 2026 Jacques Pouyaud.
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Free software under the GNU General Public License, version 3 or (at your
@@ -22,6 +22,7 @@
  * report only, Apply writes masked copies (<frame>_cm.xisf) into the output
  * folder. Masking in place is the WBPP event script's job.
  *
+ * v0.2.5: deprecated names replaced. No change to the behaviour.
  * v0.2.4: menu entry moved to Script > JPS (was Script > Utilities).
  * v0.1.0: first version.
  * v0.2.0: parallel detection on threads (PixInsight 1.9.5), detection threads setting.
@@ -35,7 +36,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.4";
+var VERSION = "0.2.5";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
@@ -61,7 +62,11 @@ function detectLanguage()
    {
       try
       {
-         var v = getEnvironmentVariable( names[i] );
+         var v = "";
+         if ( typeof System !== "undefined" && System.getEnvironmentVariable )
+            v = System.getEnvironmentVariable( names[i] );
+         else if ( typeof getEnvironmentVariable === "function" )
+            v = getEnvironmentVariable( names[i] );
          if ( v && v.length > 0 && v != "C" && v != "POSIX" )
             return v.toLowerCase().indexOf( "fr" ) == 0 ? "fr" : "en";
       }
@@ -440,8 +445,9 @@ constructor()
          gdd.initialPath = self.outputEdit.text.trim();
       if ( gdd.execute() )
       {
-         self.outputEdit.text = gdd.directory;
-         writeString( "outputDir", gdd.directory );
+         var dir = gdd.directoryPath || gdd.directory;
+         self.outputEdit.text = dir;
+         writeString( "outputDir", dir );
       }
    };
    var outputRow = new HorizontalSizer;
@@ -593,11 +599,12 @@ addFiles()
       ofd.initialPath = last;
    if ( !ofd.execute() )
       return;
-   for ( var i = 0; i < ofd.fileNames.length; ++i )
-      this.addPath( ofd.fileNames[i] );
-   if ( ofd.fileNames.length > 0 )
+   var paths = ofd.filePaths || ofd.fileNames;
+   for ( var i = 0; i < paths.length; ++i )
+      this.addPath( paths[i] );
+   if ( paths.length > 0 )
    {
-      var dir = File.extractDrive( ofd.fileNames[0] ) + File.extractDirectory( ofd.fileNames[0] );
+      var dir = File.extractDrive( paths[0] ) + File.extractDirectory( paths[0] );
       writeString( "lastFolder", dir );
       if ( this.outputEdit.text.trim().length == 0 )
       {
@@ -712,15 +719,15 @@ run( dryRun )
          outputDir: out,
          copyTo: dryRun ? "" : out,
          noData: this.noDataCombo.currentItem == 1 ? NaN : 0,
-         abort: function() { processEvents(); return self.stopRequested; },
-         onProgress: function() { processEvents(); },
-         onFrame: function( r ) { self.showFrameResult( r, dryRun ); processEvents(); },
+         abort: function() { CoreApplication.processEvents(); return self.stopRequested; },
+         onProgress: function() { CoreApplication.processEvents(); },
+         onFrame: function( r ) { self.showFrameResult( r, dryRun ); CoreApplication.processEvents(); },
          log: function( s )
          {
             lines.push( s );
             console.writeln( "ClarkeMask: " + s );
             console.flush();
-            processEvents();
+            CoreApplication.processEvents();
          }
       } );
    }

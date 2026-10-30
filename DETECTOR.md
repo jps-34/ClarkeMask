@@ -72,7 +72,8 @@ noise divided by 2: the ratio has to be measured, not assumed.
 * Computed **once per group**, from the registration reference frame first, then from the first
   frame that has a solution. Registered frames share the reference grid and carry its solution.
 * **Checked against the trails.** A mirrored solution (wrong parity, shown as "flipped" by
-  PixInsight; seen with WCS written at acquisition and converted on loading) gives `180 - theta`
+  PixInsight; seen with WCS written at acquisition and converted on loading by PixInsight
+  before 1.9.6) gives `180 - theta`
   instead of `theta`, and the whole group is then searched in a wrong direction. The engine runs
   `detect()` along `theta` and along `180 - theta` on up to three frames of the group (first,
   middle, last). The mirror is used only when it clearly wins: at least 2 trails, and more than
