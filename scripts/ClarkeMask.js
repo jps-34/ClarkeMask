@@ -7,7 +7,7 @@
    and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.5
+ * ClarkeMask.js  v0.2.6
  * Copyright (c) 2026 Jacques Pouyaud.
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Free software under the GNU General Public License, version 3 or (at your
@@ -22,6 +22,7 @@
  * report only, Apply writes masked copies (<frame>_cm.xisf) into the output
  * folder. Masking in place is the WBPP event script's job.
  *
+ * v0.2.6: Return in an edit box runs no button.
  * v0.2.5: deprecated names replaced. No change to the behaviour.
  * v0.2.4: menu entry moved to Script > JPS (was Script > Utilities).
  * v0.1.0: first version.
@@ -36,7 +37,7 @@
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.5";
+var VERSION = "0.2.6";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
@@ -273,6 +274,8 @@ var ClarkeMaskDialog = class extends Dialog {
 constructor()
 {
    super();
+   // Return must validate the edit boxes, not run a button of the dialog.
+   this.autoDefaultButton = false;
    var self = this;
    this.windowTitle = TITLE + " " + VERSION;
    this.relaunch = false;
