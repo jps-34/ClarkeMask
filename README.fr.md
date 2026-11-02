@@ -1,5 +1,10 @@
 # ClarkeMask
 
+**<ins>La version 0.3.0 change la méthode du masquage dans WBPP, et l'endroit où on le choisit. Il
+n'utilise plus d'Event Script : dans WBPP, onglet *Pipeline*, décocher *Event Script* et choisir
+`ClarkeMask-PipelineBuilder.js` dans *Pipeline builder* à la place. Les fichiers de WBPP ne sont plus
+modifiés.</ins>**
+
 **Script PixInsight : masque les traînées de satellites géostationnaires dans chaque brute, pour
 que l'intégration de WBPP les rejette pixel par pixel.**
 
@@ -17,9 +22,10 @@ brutes propres à cet endroit : le nombre de valeurs varie d'un pixel à l'autre
 
 ## Principe
 
-* **Dans WBPP** : un script d'événement s'exécute juste après la registration, avant la
-  normalisation locale et l'intégration. Les pixels masqués sont mis à 0, valeur que l'intégration
-  de WBPP rejette déjà pour les brutes.
+* **Dans WBPP** : un pipeline builder ajoute une étape de masquage juste après la registration,
+  avant la normalisation locale et l'intégration. Des copies masquées des brutes, à 0 sous les
+  masques, passent à la suite du pipeline de WBPP, dont l'intégration rejette déjà le 0 pour les
+  brutes. Les fichiers de WBPP ne sont pas modifiés.
 * **Détection** : la direction des traînées vient de la solution astrométrique de la brute
   (déclinaison constante) ; chaque traînée est suivie segment par segment, sa largeur tirée de son
   propre profil. Critères et paramètres : [DETECTOR.md](DETECTOR.md) (en anglais). Nécessite une
@@ -56,7 +62,7 @@ signalée. Une valeur plus grande explore davantage de directions inclinées et 
 Nécessite la durée de pose dans les en-têtes.
 
 Les deux valeurs se règlent dans le dialogue ; elles sont enregistrées dans les réglages de
-PixInsight et utilisées par le script d'événement de WBPP.
+PixInsight et utilisées par le pipeline builder de WBPP.
 
 ## Réglage : threads de détection
 
@@ -64,12 +70,12 @@ Les brutes d'un groupe sont détectées en parallèle, une par thread ;
 le masquage et l'enregistrement restent faits dans l'ordre, et les résultats sont les mêmes qu'en
 série. **Auto** (par défaut) utilise autant de threads que de processeurs permis dans les
 préférences de PixInsight, dans la limite de la mémoire disponible (chaque thread garde une brute
-en mémoire) ; **1** détecte en série. Se règle dans le dialogue, utilisé par le script d'événement
+en mémoire) ; **1** détecte en série. Se règle dans le dialogue, utilisé par le pipeline builder
 de WBPP.
 
 ## Prérequis
 
-* PixInsight 1.9.5 ou plus.
+* PixInsight 1.9.6 ou plus (le builder est testé avec WBPP 3.2.0).
 * Des brutes registrées (monochromes ou couleur) avec une **solution astrométrique** : plate
   solving à l'acquisition (WCS écrit par le logiciel d'acquisition), ou brute de référence résolue
   avec ImageSolver avant WBPP. L'option de plate solving de WBPP n'aide pas ici : elle ne résout
@@ -83,23 +89,41 @@ de WBPP.
 1. *Resources > Updates > Manage Repositories*, ajouter `https://jps-34.github.io/ClarkeMask/`
 2. *Check for Updates*, redémarrer PixInsight (activer *Allow unsigned update repositories* tant
    que le dépôt n'est pas signé).
-3. *Script > JPS > ClarkeMask* (*Script > Utilities* jusqu'à la 0.2.3). Le script d'événement WBPP `ClarkeMask-WBPP.js` est installé
-   dans le même dossier ; son chemin est affiché en bas du dialogue.
+3. *Script > JPS > ClarkeMask* (*Script > Utilities* jusqu'à la 0.2.3). Le pipeline builder de WBPP `ClarkeMask-PipelineBuilder.js` est
+   installé dans le même dossier ; son chemin est affiché en bas du dialogue.
 
 Ou télécharger le dossier `scripts/` et lancer `ClarkeMask.js` par *Script > Execute Script File*
-(les quatre fichiers doivent rester ensemble).
+(`ClarkeMask.js`, `ClarkeMaskCore.js` et `ClarkeMaskEngine.js` doivent rester ensemble ;
+`ClarkeMask-PipelineBuilder.js` n'a besoin de rien d'autre).
 
 ## Utilisation
 
-**Avec WBPP** (masquage sur place des brutes registrées, avant la normalisation locale et
-l'intégration) :
+**Avec WBPP** (copies masquées des brutes registrées, utilisées par la normalisation locale,
+l'intégration et le drizzle de WBPP) :
 
 1. Lancer une fois *Script > JPS > ClarkeMask* pour vérifier les réglages ; le dialogue
-   affiche le chemin du script d'événement.
-2. Dans WBPP, *Pipeline > Event Script* : l'activer et choisir `ClarkeMask-WBPP.js` dans le
-   dossier de ClarkeMask.
-3. Lancer WBPP comme d'habitude. Masques, carte de couverture et rapports sont dans
+   affiche le chemin du pipeline builder.
+2. Dans WBPP, *Pipeline > Pipeline builder* : l'activer et choisir `ClarkeMask-PipelineBuilder.js`
+   dans le dossier de ClarkeMask. Le panneau Pipeline montre alors une étape *ClarkeMask masking*
+   après chaque registration. Laisser *Event Script* décoché.
+3. Lancer WBPP comme d'habitude. Masques, carte de couverture, rapports et journal sont dans
    `<sortie WBPP>/ClarkeMask/`.
+
+Une copie masquée de chaque brute qui a des traînées est écrite dans
+`<sortie WBPP>/ClarkeMask/copies/`, avec ses propres données drizzle, et la suite de WBPP l'utilise ;
+les brutes registrées de WBPP ne sont pas modifiées. Une dernière étape supprime les copies
+d'images ; leurs fichiers `.xdrz` et `.xnml` restent. **Espace disque :** pendant le passage, une
+copie complète par brute masquée. Les traînées géostationnaires touchent souvent toutes les brutes :
+prévoir alors autant d'espace libre que les brutes registrées.
+
+**Contrôles de sécurité.** En plus de l'interface documentée du pipeline builder de WBPP, le builder
+s'appuie sur des parties de WBPP qui peuvent changer dans une future version : il les vérifie avant
+de mettre quoi que ce soit en file, et vérifie les brutes avant de leur passer les copies. Si quelque
+chose n'est pas comme prévu, si un groupe n'a pas de solution astrométrique, ou si une brute ne peut
+pas être traitée, il arrête le passage avec un message dans la console, plutôt que de laisser WBPP
+intégrer des brutes non masquées. Son journal indique la version de WBPP ; une version autre que
+celle testée est signalée. À un deuxième passage avec les mêmes brutes, l'enregistrement vient du
+cache de WBPP, mais la normalisation locale est recalculée.
 
 **Seul** (*Script > JPS > ClarkeMask*), sur des brutes registrées ; les entrées ne sont
 jamais modifiées :

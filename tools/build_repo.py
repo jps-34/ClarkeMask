@@ -5,15 +5,16 @@ Build the PixInsight update repository served from docs/ (GitHub Pages).
   python3 tools/build_repo.py --user <github_user>
 
 Creates, for the current script version (read from the main script):
-  docs/ClarkeMask-<version>-PI195.zip   V8 scripts, PixInsight 1.9.5 and later
+  docs/ClarkeMask-<version>-PI196.zip   V8 scripts, PixInsight 1.9.6 and later
   docs/updates.xri                      repository index (unsigned)
 
 The archive follows the layout required by PixInsight:
-  src/scripts/ClarkeMask/<every .js file of scripts/>  (+ its .xsgn if present next to it)
+  src/scripts/ClarkeMask/<every .js file of scripts/ but ClarkeMaskBuilderBody.js>  (+ its .xsgn if present)
   src/scripts/ClarkeMask/LICENSE
 
 Order for a signed release:
-  1. sign each script with CodeSign (this creates the .xsgn file next to it);
+  1. run tools/build_pipeline_builder.py, then sign each packaged script with CodeSign (this
+     creates the .xsgn file next to it);
   2. run this script (the .xsgn files are packed, the SHA-1 digest computed);
   3. sign docs/updates.xri with CodeSign (last step: any later change to the
      archive or to updates.xri invalidates the signature);
@@ -27,13 +28,13 @@ NAME = "ClarkeMask"
 MAIN_SCRIPT = "scripts/ClarkeMask.js"      # carries var VERSION = "x.y.z"
 
 PACKAGE = {
-    "suffix": "PI195",
-    "version": "1.9.5:1.9.99",
-    "title": "ClarkeMask {v} (PixInsight 1.9.5 and later)",
+    "suffix": "PI196",
+    "version": "1.9.6:1.9.99",
+    "title": "ClarkeMask {v} (PixInsight 1.9.6 and later)",
     "desc": "Masks geostationary satellite trails in registered light frames, so that integration "
-            "rejects them pixel by pixel. Runs inside WBPP as an event script, right after "
-            "registration, or standalone from the Script menu. Never modifies the original or "
-            "calibrated frames. Parallel detection on all processors. English or "
+            "rejects them pixel by pixel. Runs inside WBPP as a pipeline builder, right after "
+            "registration, on masked copies, or standalone from the Script menu. Never modifies the "
+            "original, calibrated or registered frames. Parallel detection on all processors. English or "
             "French interface.",
 }
 NOTICE = "Copyright (c) 2026 Jacques Pouyaud. GNU GPL v3 or later. Source: https://github.com/{user}/ClarkeMask"
@@ -49,7 +50,8 @@ def script_version(path):
 
 
 def build_zip(version, outdir):
-    scripts = sorted(glob.glob(os.path.join(ROOT, "scripts", "*.js")))
+    scripts = sorted(s for s in glob.glob(os.path.join(ROOT, "scripts", "*.js"))
+                     if not s.endswith("BuilderBody.js"))   # source of the builder, not packaged
     zname = "%s-%s-%s.zip" % (NAME, version, PACKAGE["suffix"])
     zpath = os.path.join(outdir, zname)
     entries = [(os.path.join(ROOT, "LICENSE"), "src/scripts/%s/LICENSE" % NAME)]

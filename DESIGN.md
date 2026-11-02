@@ -18,23 +18,35 @@ frames is not an option; masking the trail pixels is.
 
 ## 2. Where it runs: inside WBPP
 
-### Event script hook
+### Pipeline builder hook (since 0.3.0)
 
-WBPP (3.1.x, `src/scripts/BatchPreprocessing/`) runs its pipeline as a serial operation queue and
-can carry one user **event script** (`BPP-OperationQueue.js`, "THE EVENT SCRIPT"):
+WBPP (3.2.0, `src/scripts/BatchPreprocessing/`) runs its pipeline as a serial operation queue. A
+user **pipeline builder** (*Pipeline > Pipeline builder*) decides what the queue holds for the light
+frames; WBPP's example presents it for "the standard processing plus something of your own". The
+builder file is read as text and evaluated by WBPP (`BPP-Pipeline.js`, `runPipelineBuilder()`), in
+strict mode, inside a block, with `engine` in scope; `#include` is not available, so
+`tools/build_pipeline_builder.py` concatenates the core, the engine and the body into
+`ClarkeMask-PipelineBuilder.js`.
 
-* hooks `onPipelineStart`, `onOperationStart`, `onOperationDone`, `onPipelineEnd`, each called
-  with `( env, state )`;
-* for trackable operations, `env` carries what the operation publishes through `envForScript()`;
-  the registration operation (`BPP-Operations.js`, `RegistrationOperation`) publishes
-  `name: "Registration"`, `status` and `group` (the frame group);
-* `group.activeFrames()` lists the frames; `frame.current` is the path of the file the next steps
-  will read, i.e. the registered frame after registration;
-* local normalization and integration are queued after registration and run after the hook
-  returns.
-
-So `onOperationDone` with `env.name == "Registration"` is the insertion point: registered frames,
-before LN and integration.
+* The builder calls `engine.pipelineManager.buildPipelineForLight()`, then inserts a
+  `BPPOperationBlock` right after each light `Registration` operation of
+  `engine.operationQueue.operations` (and renumbers `__index__`), so that the step runs on the
+  registered frames, before local normalization and integration. A last block removes the image
+  copies and writes the log.
+* `group.activeFrames()` lists the frames; `frame.current` is the path the next steps read. The
+  step writes a masked copy of each frame with trails and calls
+  `frame.processingSucceeded( BPP.FrameProcessingStep.REGISTRATION, copy )`, as every WBPP step does
+  with its output: local normalization, integration and drizzle then read the copy.
+* Only `buildPipelineForLight()` and `addOperationBlock()` are the documented interface. The rest
+  (operations array, `BPPOperationBlock`, `processingSucceeded()`, `addDrizzleFile()`, range
+  rejection of the zeros) is checked before anything is queued (`checkWBPP()`, which reads the
+  source of WBPP's `doIntegrate` for `rangeClipLow = true` and `rangeLow = 0`) and on the frames of
+  each group (`checkFrames()`). A missing part, a group without astrometric solution or a frame
+  that cannot be processed stops the run (`requestInterruption()`) instead of letting WBPP
+  integrate unmasked frames.
+* Up to 0.2.6, an **event script** masked the registered frames in place from
+  `onOperationDone`. It is replaced: an event script is meant to observe a run, and rewriting
+  WBPP's files during the run escapes WBPP's control (its cache, its drizzle data).
 
 ### How a per-frame mask reaches the integration
 
@@ -47,27 +59,27 @@ integration case). That is how the zero borders left by registration are exclude
 A masked pixel written as 0 follows the same path: at integration, each pixel is stacked from the
 frames not masked there, and rejection statistics are computed on what remains.
 
-### In place, with one mask file per frame
+### Masked copies, with one mask file per frame
 
-* The registered frame is modified in place. A masked copy would break the association of the
-  `.xdrz` and `.xnml` files, which WBPP derives from the frame's base name.
-* Registered frames are WBPP intermediates: originals and calibrated frames are never touched.
+* WBPP's registered frames are never modified. The masked copy `<frame>_cm.xisf` is written to
+  `<WBPP output>/ClarkeMask/copies/groupNN/`. WBPP derives the drizzle file from the path of the
+  current frame: the `.xdrz` of the registered frame is copied next to the masked copy and declared
+  with `addDrizzleFile()`, so that integration writes its rejection data there and WBPP's own file
+  stays as it is. Local normalization writes its `.xnml` next to the copy.
 * One mask file per frame (compressed XISF) is written to `<WBPP output>/ClarkeMask/groupNN/`,
   with the coverage map, a CSV report per frame and `trails.csv` (one line per trail, with the
   length diagnostic), for visual checking and to tell what was masked; the
   run log goes to `<WBPP output>/ClarkeMask/ClarkeMask.log`. A HISTORY keyword in each masked
-  frame records the number of trails and pixels.
-* The frame is written to a temporary file next to it, then replaces it: a failure never leaves a
-  half-written frame.
+  copy records the number of trails and pixels.
+* Disk: one full copy per masked frame during the run; geostationary trails often cross every
+  frame, so the copies can take as much space as the registered frames until the last step.
 
 ### Constraints of the hook
 
-* The event script is compiled with `eval` (`compileEventScript`): `#include` is not processed
-  there. Decided: the event script loads `ClarkeMaskCore.js` and `ClarkeMaskEngine.js` at run time
-  with an indirect eval, from the folder of the event script (`engine.pipelineScriptFile`).
-* WBPP holds one event script at a time: a user who already has one must chain both.
-* A failing event script is reported as a warning and the pipeline carries on: errors must be
-  logged clearly, and a frame that could not be processed must be left untouched.
+* WBPP holds one pipeline builder at a time.
+* A builder that throws while it is evaluated makes WBPP fall back to its default pipeline, that is
+  without masking: the checks therefore never throw at that stage, they queue a single step that
+  stops the run with the reasons.
 
 ### Parallel detection
 
@@ -93,7 +105,7 @@ thread from the source of `ClarkeMaskCoreFactory`, with the few engine helpers i
 A Script menu entry for frames registered outside WBPP, or for other stackers: same detection,
 masked copies written next to the inputs, 0 or NaN as the "no data" value. It also holds the user
 settings (maximum angle, maximum angle confirmed by length) with their explanations, used by the
-WBPP event script.
+WBPP pipeline builder.
 
 Viewing the masks (light: one compressed mask per frame, opened on demand): a list of the frames
 with their trails (length class, angle, confirmed or reported); selecting one opens the frame
@@ -157,7 +169,8 @@ excluded):
 ## 6. Validation on a real WBPP run
 
 Run headless (automation mode) on a short raw OSC sequence near the belt, without calibration,
-with local normalization and rejection maps, once without and once with the event script:
+with local normalization and rejection maps, once without and once with the event script of the
+0.2 versions (the masks and the integration path are the same with the pipeline builder):
 
 * **Hook**: the event script is installed, the registration `done` event carries the group, and
   `activeFrame.current` is the registered file. LN and integration then read the masked frames.
@@ -198,11 +211,12 @@ untouched:
 
 ## 7. Open questions
 
-1. Drizzle: are pixels rejected by range rejection written to the `.xdrz` rejection data, so that
-   DrizzleIntegration honours the masks? (Not settable in automation mode: interactive test.)
-2. WBPP execution cache: behaviour on a second run when registered files were modified in place,
-   and whether a cached registration still raises the `done` event. (Automation instances do not
-   keep the cache: interactive test.)
+1. Drizzle: answered with the pipeline builder of StarlinkSweeper, which uses the same mechanism:
+   the rejection map of the masked copy's `.xdrz` marks every masked pixel as rejected, and
+   DrizzleIntegration runs with rejection enabled. To confirm on a ClarkeMask run.
+2. WBPP execution cache: with a builder, WBPP's registered files are untouched and a second run
+   takes the registration from the cache (checked interactively with StarlinkSweeper); local
+   normalization is computed again, since the copies are written again.
 3. Separate RGB channels output of WBPP (one virtual group per channel): untested.
 4. Width of the angle search: user settings (`ClarkeMask/maxAngle`, default 2.5 deg;
    `ClarkeMask/maxConfirmedAngle`, default 7 deg), to be exposed in the dialog with their

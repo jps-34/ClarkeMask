@@ -8,8 +8,9 @@
  *
  * PixInsight layer of ClarkeMask: reads frames, takes the trail direction
  * from the astrometric solution, runs the numeric core (ClarkeMaskCore,
- * which must be loaded first), writes 0 under the masks in every channel,
- * and writes one mask file per frame, a coverage map and a CSV report.
+ * which must be available), writes masked copies of the frames (0 under the
+ * masks in every channel; the frames themselves are never modified), one mask
+ * file per frame, a coverage map and a CSV report.
  *
  * With PixInsight 1.9.5 and later, the frames of a group are detected in
  * parallel on Thread objects (each with a JavaScript runtime of its own, where
@@ -17,7 +18,8 @@
  * thread masks and saves the frames in order as their detections arrive. Same
  * code, same results as the serial path.
  *
- * No #include here: the WBPP event script loads this file with eval, where
+ * No #include here: tools/build_pipeline_builder.py concatenates this file
+ * into the WBPP pipeline builder, which WBPP evaluates as one file, where
  * preprocessor directives and the pjsr/*.jsh constants are not available.
  */
 
@@ -35,7 +37,7 @@ var ClarkeMaskEngine = ( function()
       outputDir: "",        // masks, coverage map and report ("" = no files)
       writeMasks: true,     // one <frame>_mask.xisf per frame with trails
       dryRun: false,        // preview: masks, report and predicted cost; frames not modified
-      copyTo: "",           // folder: write masked copies <frame>_cm.xisf there; "" = in place (WBPP)
+      copyTo: "",           // folder of the masked copies <frame>_cm.xisf, required unless dryRun
       noData: 0,            // value written under the masks: 0 (PixInsight range rejection) or NaN
       abort: null,          // function returning true to stop between frames
       onFrame: null,        // function( result ) called after each frame
@@ -61,8 +63,8 @@ var ClarkeMaskEngine = ( function()
    }
 
    // ------------------------------------------------------------- user settings
-   // Saved in the PixInsight settings, so that the WBPP event script uses what
-   // the user chose in the dialog.
+   // Saved in the PixInsight settings, so that the WBPP pipeline builder uses
+   // what the user chose in the dialog.
 
    var SETTINGS = {
       maxAngle: { key: "ClarkeMask/maxAngle", min: 0, max: 10, detect: true },                   // deg
@@ -248,20 +250,6 @@ var ClarkeMaskEngine = ( function()
          throw new Error( "Unable to write " + path );
    }
 
-   function saveInPlace( win, path )
-   {
-      // Writes to a temporary file next to the original, then replaces it, so
-      // that a failure never leaves a half-written frame.
-      var tmp = File.extractDrive( path ) + File.extractDirectory( path ) + "/" + baseName( path ) +
-                "_cmtmp" + File.extractExtension( path );
-      if ( File.exists( tmp ) )
-         File.remove( tmp );
-      if ( !win.saveAs( tmp, false /*query*/, false /*messages*/, false /*strict*/, false /*verifyOverwrite*/ ) )
-         throw new Error( "Unable to write " + tmp );
-      File.remove( path );
-      File.move( tmp, path );
-   }
-
    function writeImage( path, data, w, h, bits, real, hints )
    {
       // Writes a one-channel image ([0,1] data) as XISF, with bits per sample
@@ -333,7 +321,7 @@ var ClarkeMaskEngine = ( function()
             res = ClarkeMaskCore.detectAll( det.data, det.w, det.h, theta, dopt );
             length = dopt.expectedLength || 0;
          }
-         var mask = new Uint8Array( W * H );
+         var mask = new Uint8Array( W * H ), output = "";
          var pixels = ClarkeMaskCore.rasterize( res, W, H, opt.binning, opt.margin, opt.endMargin, mask );
          // registration borders are 0 in every channel: channel 0 tells the valid pixels
          var valid = coverage ? channelData( img, 0 ) : null;
@@ -345,10 +333,8 @@ var ClarkeMaskEngine = ( function()
                applyMask( win, mask, opt.noData );
                addHistory( win, "ClarkeMask " + ClarkeMaskCore.VERSION + ": " + res.trails.length + " trails, " +
                            pixels + " pixels set to " + opt.noData );
-               if ( opt.copyTo )
-                  saveCopy( win, opt.copyTo + "/" + baseName( path ) + "_cm.xisf" );
-               else
-                  saveInPlace( win, path );
+               output = opt.copyTo + "/" + baseName( path ) + "_cm.xisf";
+               saveCopy( win, output );
             }
             if ( opt.outputDir && opt.writeMasks )
             {
@@ -376,7 +362,7 @@ var ClarkeMaskEngine = ( function()
                ++coverage.frames;
             }
          }
-         return { file: path, trails: res.trails.length, rejected: res.rejected.length, pixels: pixels,
+         return { file: path, output: output, trails: res.trails.length, rejected: res.rejected.length, pixels: pixels,
                   sigPix: res.sigPix, seconds: ( Date.now() - t0 ) / 1000 + ( found ? found.seconds : 0 ), detail: res,
                   exposure: exposure, expectedLength: length * opt.binning };
       }
@@ -690,10 +676,14 @@ var ClarkeMaskEngine = ( function()
 
    function processGroup( paths, o )
    {
-      // Masks every frame of a registered group. o.theta: trail direction, or
-      // taken from the first frame with an astrometric solution (o.reference
-      // first, then the frames). Returns {theta, results, failed, coverage}.
+      // Writes a masked copy of every frame of a registered group that has
+      // trails, in o.copyTo (result.output of each masked frame). o.theta: trail
+      // direction, or taken from the first frame with an astrometric solution
+      // (o.reference first, then the frames). Returns {theta, results, failed,
+      // coverage}.
       var opt = options( o ), theta = ( opt.theta === undefined || opt.theta === null ) ? null : opt.theta;
+      if ( !opt.dryRun && !opt.copyTo )
+         throw new Error( "processGroup: no folder for the masked copies" );
       var det = {};
       if ( opt.detect ) for ( var dk in opt.detect ) det[dk] = opt.detect[dk];
       var user = readSettings(), src = {};
@@ -745,7 +735,7 @@ var ClarkeMaskEngine = ( function()
       }
       if ( theta === null )
       {
-         opt.log( "** no astrometric solution in this group: frames left untouched. ClarkeMask needs one to know " +
+         opt.log( "** no astrometric solution in this group: nothing masked. ClarkeMask needs one to know " +
                   "the trail direction: let the acquisition software write one (WCS), or solve the reference frame " +
                   "with ImageSolver, then run again (the plate solving of WBPP only solves the masters, after " +
                   "integration)" );
@@ -820,7 +810,7 @@ var ClarkeMaskEngine = ( function()
             catch ( e )
             {
                failed.push( paths[f] );
-               opt.log( "** " + baseName( paths[f] ) + " left untouched: " + e.message );
+               opt.log( "** " + baseName( paths[f] ) + " not masked: " + e.message );
             }
          }
       }

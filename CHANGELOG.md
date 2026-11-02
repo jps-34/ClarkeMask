@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.3.0 (2026-11-02)
+* **Masking in WBPP now goes through a pipeline builder**, `ClarkeMask-PipelineBuilder.js`: one
+  self-contained file, selected in WBPP under *Pipeline > Pipeline builder*. It queues WBPP's standard
+  light pipeline and inserts a masking step after each registration. The trails are masked in copies
+  of the registered frames, which the next steps of the pipeline use; **WBPP's own files are no longer
+  modified**, and the copies get their own drizzle data. The image copies are removed at the end of
+  the run.
+* The builder checks the parts of WBPP it relies on before queuing anything, and the frames before
+  handing them the copies; if something is not as expected, if a group has no astrometric solution,
+  or if a frame cannot be processed, it stops the run with a message instead of letting WBPP
+  integrate unmasked frames. Its log names the version of WBPP.
+* **The event script `ClarkeMask-WBPP.js` is removed.** If you used it, untick *Event Script* in WBPP
+  and select the builder instead: without it, WBPP only warns about the missing file and nothing is
+  masked.
+* Disk space: the run needs one full copy per masked frame while it lasts; geostationary trails often
+  cross every frame.
+* **PixInsight 1.9.6 or later is required**, the only version tested with the builder (WBPP 3.2.0).
+  With an earlier version, the update repository keeps offering 0.2.6.
+* Dialog: the *With WBPP* box gives the path of the builder; the buttons keep at least the width of
+  their label.
+
 ## 0.2.6 (2026-10-30)
 * Return no longer runs a button of the dialog: PixInsight 1.9.6 activates the first button of a dialog
   when Return is pressed in an edit box, which could start a run or reset the settings.

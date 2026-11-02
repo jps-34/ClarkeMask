@@ -4,10 +4,10 @@
 #feature-info  Masks geostationary satellite trails in registered light frames, so that \
    integration rejects them pixel by pixel. Preview of the masks and of their cost, \
    masked copies (the inputs are never modified), viewing of each frame with its mask, \
-   and the settings used by the ClarkeMask WBPP event script. Interface in English or French.
+   and the settings used by the ClarkeMask WBPP pipeline builder. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.2.6
+ * ClarkeMask.js  v0.3.0
  * Copyright (c) 2026 Jacques Pouyaud.
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Free software under the GNU General Public License, version 3 or (at your
@@ -15,13 +15,18 @@
  * Code written by Claude (Anthropic), under the direction of Jacques Pouyaud.
  *
  * Dialog of ClarkeMask. The detection lives in ClarkeMaskCore.js, the
- * PixInsight layer in ClarkeMaskEngine.js; the WBPP event script
- * ClarkeMask-WBPP.js uses the same files and the settings saved here.
+ * PixInsight layer in ClarkeMaskEngine.js; the WBPP pipeline builder
+ * ClarkeMask-PipelineBuilder.js is built from the same files and uses the
+ * settings saved here.
  *
  * The dialog never modifies its input frames: Preview writes the masks and the
  * report only, Apply writes masked copies (<frame>_cm.xisf) into the output
- * folder. Masking in place is the WBPP event script's job.
+ * folder. The pipeline builder writes masked copies too, inside WBPP.
  *
+ * v0.3.0: masking in WBPP through a pipeline builder, on copies of the
+ *   registered frames (ClarkeMask-PipelineBuilder.js), which checks the parts of
+ *   WBPP it relies on; the event script is removed. PixInsight 1.9.6 or later
+ *   required.
  * v0.2.6: Return in an edit box runs no button.
  * v0.2.5: deprecated names replaced. No change to the behaviour.
  * v0.2.4: menu entry moved to Script > JPS (was Script > Utilities).
@@ -33,15 +38,17 @@
  */
 
 
+CoreApplication.ensureMinimumVersion( 1, 9, 6 );
+
 #include "ClarkeMaskCore.js"
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.2.6";
+var VERSION = "0.3.0";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );
-var EVENT_SCRIPT = SCRIPT_DIR + "/ClarkeMask-WBPP.js";
+var PIPELINE_BUILDER = SCRIPT_DIR + "/ClarkeMask-PipelineBuilder.js";
 var LANG = "en";
 var TIPS = {};
 
@@ -194,32 +201,32 @@ function buildTips()
                    "exactement selon l'est-ouest du ciel ; les géosynchrones inclinés, surtout anciens, tracent des traînées inclinées " +
                    "de quelques degrés. Jusqu'à cet angle, toute traînée droite est masquée. 2,5° par défaut.</p>" +
                    "<p>Une valeur plus grande masque des objets plus inclinés mais allonge la détection, et d'autres types d'objets " +
-                   "deviennent plus probables. Réglage enregistré aussitôt et utilisé par le script d'événement de WBPP.</p>",
+                   "deviennent plus probables. Réglage enregistré aussitôt et utilisé par le pipeline builder de WBPP.</p>",
                    "<p><b>Maximum angle from the belt.</b> A strictly geostationary satellite draws its trail exactly along the " +
                    "east-west direction of the sky; inclined geosynchronous satellites, older ones especially, draw trails tilted by " +
                    "a few degrees. Up to this angle every straight trail is masked. Default 2.5 deg.</p>" +
                    "<p>A larger value masks more inclined objects but makes the detection longer, and other kinds of objects become " +
-                   "more likely. Saved at once and used by the WBPP event script.</p>" ),
+                   "more likely. Saved at once and used by the WBPP pipeline builder.</p>" ),
       maxConfirmed: L( "<p><b>Au-delà, confirmation par la longueur.</b> Un objet géosynchrone défile à la vitesse sidérale, sa " +
                        "traînée a donc une longueur connue (dérive sidérale pendant la pose). Entre l'angle maximal et cette limite, " +
                        "une traînée droite est masquée si sa longueur correspond et si ses deux bouts sont dans l'image ; sinon elle " +
                        "est seulement signalée. 7° par défaut. Nécessite la durée de pose dans les en-têtes. Réglage enregistré " +
-                       "aussitôt et utilisé par le script d'événement de WBPP.</p>",
+                       "aussitôt et utilisé par le pipeline builder de WBPP.</p>",
                        "<p><b>Beyond it, confirmation by length.</b> A geosynchronous object moves at the sidereal rate, so its trail " +
                        "has a known length (sidereal drift during the exposure). Between the maximum angle and this limit, a straight " +
                        "trail is masked when its length matches with both ends inside the image; otherwise it is only reported. " +
-                       "Default 7 deg. Needs the exposure time in the headers. Saved at once and used by the WBPP event script.</p>" ),
+                       "Default 7 deg. Needs the exposure time in the headers. Saved at once and used by the WBPP pipeline builder.</p>" ),
       threads: L( "<p><b>Threads de détection.</b> Les brutes d'un groupe sont détectées en parallèle, une par thread ; " +
                   "le masquage et l'enregistrement restent faits dans l'ordre. Mêmes résultats qu'en série.</p>" +
                   "<p><b>Auto</b> (par défaut) : autant de threads que de processeurs permis par les préférences de PixInsight, " +
                   "limité par la mémoire disponible (chaque thread garde une brute en mémoire). <b>1</b> : détection en série. " +
                   "Réglage enregistré aussitôt " +
-                  "et utilisé par le script d'événement de WBPP.</p>",
+                  "et utilisé par le pipeline builder de WBPP.</p>",
                   "<p><b>Detection threads.</b> The frames of a group are detected in parallel, one per thread; masking and " +
                   "saving are still done in order. Same results as in series.</p>" +
                   "<p><b>Auto</b> (default): as many threads as the processors allowed by the PixInsight preferences, limited by " +
                   "the available memory (each thread holds one frame in memory). <b>1</b>: serial detection. Saved at once and " +
-                  "used by the WBPP event script.</p>" ),
+                  "used by the WBPP pipeline builder.</p>" ),
       noData: L( "<p>Valeur écrite sous les masques dans les copies masquées.</p>" +
                  "<p><b>0</b> : pour PixInsight (ImageIntegration, WBPP), qui rejette les pixels à 0 des brutes (réjection basse " +
                  "« Clip low range » à 0, active par défaut dans WBPP).</p>" +
@@ -251,16 +258,24 @@ function buildTips()
       coverage: L( "<p>Ouvrir la carte de couverture du dossier de sortie : fraction de la pose conservée par pixel " +
                    "(1 = intacte).</p>",
                    "<p>Open the coverage map of the output folder: fraction of the exposure kept per pixel (1 = untouched).</p>" ),
-      wbpp: L( "<p>Dans WBPP, onglet Pipeline, « Event Script » : activer et choisir ce fichier. ClarkeMask masque alors chaque " +
-               "groupe de lights juste après la registration, avant la normalisation locale et l'intégration, avec les angles " +
-               "réglés ici. Masques et rapports dans &lt;sortie WBPP&gt;/ClarkeMask/.</p>",
-               "<p>In WBPP, Pipeline tab, 'Event Script': enable it and select this file. ClarkeMask then masks each light group " +
-               "right after registration, before local normalization and integration, with the angles set here. Masks and " +
-               "reports in &lt;WBPP output&gt;/ClarkeMask/.</p>" ),
+      wbpp: L( "<p>Dans WBPP, onglet Pipeline, « Pipeline builder » : activer et choisir ce fichier. ClarkeMask masque alors " +
+               "chaque groupe de lights juste après la registration, avant la normalisation locale et l'intégration, avec les " +
+               "angles réglés ici. Une copie masquée de chaque brute qui a des traînées est écrite dans " +
+               "&lt;sortie WBPP&gt;/ClarkeMask/copies/ et la suite du pipeline de WBPP l'utilise ; les fichiers de WBPP ne sont " +
+               "pas modifiés. Les copies sont supprimées à la fin ; masques et rapports restent dans &lt;sortie WBPP&gt;/ClarkeMask/.</p>" +
+               "<p><b>Espace disque :</b> pendant le passage, une copie complète par brute masquée. Les traînées géostationnaires " +
+               "touchent souvent toutes les brutes : prévoir alors autant d'espace que les brutes registrées.</p>",
+               "<p>In WBPP, Pipeline tab, 'Pipeline builder': enable it and select this file. ClarkeMask then masks each light " +
+               "group right after registration, before local normalization and integration, with the angles set here. A masked " +
+               "copy of each frame with trails is written to &lt;WBPP output&gt;/ClarkeMask/copies/ and the rest of WBPP's " +
+               "pipeline uses it; WBPP's files are not modified. The copies are removed at the end; masks and reports stay in " +
+               "&lt;WBPP output&gt;/ClarkeMask/.</p>" +
+               "<p><b>Disk space:</b> during the run, one full copy per masked frame. Geostationary trails often cross every " +
+               "frame: then allow as much space as the registered frames.</p>" ),
       reset: L( "<p>Remettre tous les réglages à leur valeur par défaut et oublier ceux enregistrés, <b>y compris les angles " +
-                "utilisés par le script d'événement de WBPP</b>.</p>",
+                "utilisés par le pipeline builder de WBPP</b>.</p>",
                 "<p>Put every setting back to its default and forget the saved ones, <b>including the angles used by the WBPP " +
-                "event script</b>.</p>" ),
+                "pipeline builder</b>.</p>" ),
       stop: L( "<p>Arrêter après la brute en cours.</p>", "<p>Stop after the current frame.</p>" ),
       close: L( "<p>Fermer.</p>", "<p>Close.</p>" )
    };
@@ -291,10 +306,10 @@ constructor()
       "<p><b>Masquage des traînées de satellites géostationnaires</b> dans des brutes registrées, pour que l'intégration " +
       "les rejette pixel par pixel. <i>1. Ajouter les brutes registrées, 2. Prévisualiser (masques et coût, rien n'est " +
       "modifié), 3. vérifier une brute avec son masque, 4. Appliquer (copies masquées). Avec WBPP, utiliser plutôt le " +
-      "script d'événement ci-dessous. Survoler un réglage pour une explication.</i></p>",
+      "pipeline builder ci-dessous. Survoler un réglage pour une explication.</i></p>",
       "<p><b>Masking of geostationary satellite trails</b> in registered frames, so that integration rejects them pixel by " +
       "pixel. <i>1. Add the registered frames, 2. Preview (masks and cost, nothing is modified), 3. check a frame with its " +
-      "mask, 4. Apply (masked copies). With WBPP, use the event script below instead. Hover over any setting for an " +
+      "mask, 4. Apply (masked copies). With WBPP, use the pipeline builder below instead. Hover over any setting for an " +
       "explanation.</i></p>" );
    this.langLabel = new Label( this );
    this.langLabel.text = "Langue / Language :";
@@ -501,12 +516,12 @@ constructor()
    this.wbppLabel = new Label( this );
    this.wbppLabel.useRichText = true;
    this.wbppLabel.wordWrapping = true;
-   this.wbppLabel.text = L( "Dans WBPP, Pipeline &gt; Event Script, choisir ce fichier :",
-                            "In WBPP, Pipeline &gt; Event Script, select this file:" );
+   this.wbppLabel.text = L( "Dans WBPP, Pipeline &gt; Pipeline builder, choisir ce fichier :",
+                            "In WBPP, Pipeline &gt; Pipeline builder, select this file:" );
    this.wbppLabel.toolTip = TIPS.wbpp;
    this.wbppEdit = new Edit( this );
    this.wbppEdit.readOnly = true;
-   this.wbppEdit.text = EVENT_SCRIPT;
+   this.wbppEdit.text = PIPELINE_BUILDER;
    this.wbppEdit.toolTip = TIPS.wbpp;
    this.wbppGroup = new GroupBox( this );
    this.wbppGroup.title = L( "Avec WBPP", "With WBPP" );
@@ -552,6 +567,16 @@ constructor()
       self.storeState();
       self.ok();
    };
+   // PixInsight shrinks a push button below the width of its text when its row is
+   // short of room: each button gets at least the width of its own label, plus
+   // room for its icon.
+   var buttonPadding = this.logicalPixelsToPhysical( 24 ), iconRoom = this.logicalPixelsToPhysical( 20 );
+   [ this.addButton, this.removeButton, this.clearButton, this.showButton, this.coverageButton,
+     this.previewButton, this.applyButton, this.stopButton, this.closeButton ].forEach( function( b )
+   {
+      b.setMinWidth( b.font.width( b.text ) + buttonPadding + ( b.icon && b.icon.width > 0 ? iconRoom : 0 ) );
+   } );
+
    var buttons = new HorizontalSizer;
    buttons.spacing = 6;
    buttons.add( this.resetButton );
@@ -927,8 +952,8 @@ resetSettings()
    this.updateAngleNote();
    this.noDataCombo.currentItem = 0;
    this.outputEdit.text = "";
-   console.writeln( TITLE + ": " + L( "réglages remis par défaut (y compris ceux du script d'événement de WBPP).",
-                                      "settings reset to defaults (including those of the WBPP event script)." ) );
+   console.writeln( TITLE + ": " + L( "réglages remis par défaut (y compris ceux du pipeline builder de WBPP).",
+                                      "settings reset to defaults (including those of the WBPP pipeline builder)." ) );
 }
 };
 

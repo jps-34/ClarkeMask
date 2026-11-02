@@ -8,9 +8,9 @@
  *
  * Numeric core of ClarkeMask: detection of geostationary satellite trails and
  * geometry of their masks. Pure JavaScript, no PixInsight object: shared by the
- * dialog script and the WBPP event script, and run under node for validation
- * (tests/run_core.js). Everything lives in the ClarkeMaskCore namespace, since
- * the event script is evaluated in the scope of WBPP.
+ * dialog script and the WBPP pipeline builder, and run under node for
+ * validation (tests/run_core.js). Everything lives in the ClarkeMaskCore
+ * namespace, since the pipeline builder is evaluated in the scope of WBPP.
  *
  * Conventions
  *   Images are Float32Array, row-major, index y*w + x. A pixel at exactly 0
@@ -817,7 +817,7 @@ function ClarkeMaskCoreFactory()
    }
 
    return {
-      VERSION: "0.2.6",
+      VERSION: "0.3.0",
       DEFAULTS: DEFAULTS,
       binMean2: binMean2,
       normalAngle: normalAngle,
