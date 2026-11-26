@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.1 (2026-11-26)
+* The script and its update repository are signed with my Certified PixInsight Developer identity,
+  `jps-34`. No change to the behaviour. If PixInsight reports an unknown code signing identity,
+  install the PixInsight update first (*Resources > Updates > Check for Updates*, then restart).
+
 ## 0.3.0 (2026-11-02)
 * **Masking in WBPP now goes through a pipeline builder**, `ClarkeMask-PipelineBuilder.js`: one
   self-contained file, selected in WBPP under *Pipeline > Pipeline builder*. It queues WBPP's standard

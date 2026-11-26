@@ -7,7 +7,7 @@
    and the settings used by the ClarkeMask WBPP pipeline builder. Interface in English or French.
 
 /*
- * ClarkeMask.js  v0.3.0
+ * ClarkeMask.js  v0.3.1
  * Copyright (c) 2026 Jacques Pouyaud.
  * SPDX-License-Identifier: GPL-3.0-or-later
  * Free software under the GNU General Public License, version 3 or (at your
@@ -23,6 +23,7 @@
  * report only, Apply writes masked copies (<frame>_cm.xisf) into the output
  * folder. The pipeline builder writes masked copies too, inside WBPP.
  *
+ * v0.3.1: signed with the CPD identity jps-34; no change to the behaviour.
  * v0.3.0: masking in WBPP through a pipeline builder, on copies of the
  *   registered frames (ClarkeMask-PipelineBuilder.js), which checks the parts of
  *   WBPP it relies on; the event script is removed. PixInsight 1.9.6 or later
@@ -44,7 +45,7 @@ CoreApplication.ensureMinimumVersion( 1, 9, 6 );
 #include "ClarkeMaskEngine.js"
 
 var TITLE = "ClarkeMask";
-var VERSION = "0.3.0";
+var VERSION = "0.3.1";
 var KEY = "ClarkeMask/";
 var DIALOG_KEYS = [ "language", "outputDir", "noData", "lastFolder" ];
 var SCRIPT_DIR = File.extractDrive( #__FILE__ ) + File.extractDirectory( #__FILE__ );

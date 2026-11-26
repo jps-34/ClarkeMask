@@ -9,13 +9,21 @@ Creates, for the current script version (read from the main script):
   docs/updates.xri                      repository index (unsigned)
 
 The archive follows the layout required by PixInsight:
-  src/scripts/ClarkeMask/<every .js file of scripts/ but ClarkeMaskBuilderBody.js>  (+ its .xsgn if present)
+  src/scripts/ClarkeMask/<every .js file of scripts/ but ClarkeMaskBuilderBody.js>
+  src/scripts/ClarkeMask/ClarkeMask.xsgn   (if present next to ClarkeMask.js)
   src/scripts/ClarkeMask/LICENSE
 
+Only the main script is signed:
+  - ClarkeMaskCore.js and ClarkeMaskEngine.js are included by ClarkeMask.js (#include): the
+    signature of the main script covers them, and they have no #feature-id / #script-id, so
+    they cannot be signed alone;
+  - the pipeline builder is read and evaluated by WBPP (eval), which checks no signature; it
+    cannot carry a #script-id directive either, as that would break the eval.
+
 Order for a signed release:
-  1. run tools/build_pipeline_builder.py, then sign each packaged script with CodeSign (this
-     creates the .xsgn file next to it);
-  2. run this script (the .xsgn files are packed, the SHA-1 digest computed);
+  1. run tools/build_pipeline_builder.py, then sign scripts/ClarkeMask.js with CodeSign (this
+     creates ClarkeMask.xsgn next to it);
+  2. run this script (the .xsgn file is packed, the SHA-1 digest computed);
   3. sign docs/updates.xri with CodeSign (last step: any later change to the
      archive or to updates.xri invalidates the signature);
   4. commit and push.
@@ -56,9 +64,12 @@ def build_zip(version, outdir):
     zpath = os.path.join(outdir, zname)
     entries = [(os.path.join(ROOT, "LICENSE"), "src/scripts/%s/LICENSE" % NAME)]
     unsigned = []
+    main = os.path.join(ROOT, MAIN_SCRIPT)
     for src in scripts:
         base = os.path.basename(src)
         entries.append((src, "src/scripts/%s/%s" % (NAME, base)))
+        if src != main:
+            continue                # only the main script carries a signature (see the header)
         sig = os.path.splitext(src)[0] + ".xsgn"
         if os.path.exists(sig):
             entries.append((sig, "src/scripts/%s/%s" % (NAME, os.path.basename(sig))))

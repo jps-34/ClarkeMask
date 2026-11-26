@@ -14,7 +14,7 @@ packaged, installed or run by the script.
   `jps-34/ClarkeMask`, whose GitHub Pages site serves the PixInsight update repository from
   `docs/`: `https://jps-34.github.io/ClarkeMask/`.
 
-### First publication on GitHub (not done yet)
+### First publication on GitHub (done in 0.2.4, kept for reference)
 
 1. The forge history starts with a commit created by the forge, which carries a personal e-mail
    address. Publish a fresh history instead: from a clean checkout of `main`, create a new
@@ -25,10 +25,10 @@ packaged, installed or run by the script.
 3. On GitHub: *Settings > Pages > Build and deployment > Deploy from a branch*, branch `main`,
    folder `/docs`.
 4. Test: in PixInsight, *Resources > Updates > Manage Repositories*, add the URL above, then
-   *Check for Updates*. Until it is signed, the *Allow unsigned update repositories* security
-   option is required.
+   *Check for Updates*. (Before the signed releases, the *Allow unsigned update repositories*
+   security option was required; the repository is signed with the CPD identity `jps-34` since then.)
 
-### Signing (not done yet)
+### Signing (CPD identity `jps-34`, since 0.3.1)
 
 Reference: *The PixInsight Code Signing System*, installed with PixInsight under
 `doc/docs/CodeSigning/CodeSigning.html` (the former online address no longer works).
@@ -40,11 +40,15 @@ Signatures are recognised by every PixInsight user only for a **Certified PixIns
 2. Send the identity and the public key to Pleiades with the **SubmitCPD** script; the identity
    is added to the certified developers database of a later PixInsight release.
 
-Then, for each version: sign the four scripts with the **CodeSign** script (one `.xsgn` file next
-to each), run `tools/build_repo.py` (it packs the `.xsgn` files), and sign `docs/updates.xri`
-last (the signature is embedded in it). The `.xssk` file stays out of Git (`.gitignore`). Until
-then the repository is unsigned and users need the *Allow unsigned update repositories* option,
-as the READMEs say.
+Then, for each version: sign `scripts/ClarkeMask.js` with the **CodeSign** script (a
+`ClarkeMask.xsgn` file next to it), run `tools/build_repo.py` (it packs the `.xsgn` file), and sign
+`docs/updates.xri` last (the signature is embedded in it). Only the main script is signed:
+`ClarkeMaskCore.js` and `ClarkeMaskEngine.js` are included by it (`#include`), so its signature
+covers them, and the pipeline builder is evaluated by WBPP, which checks no signature. Before
+committing, run the signed script in PixInsight and check that its signature is verified: a `.xsgn`
+left from an older content would make PixInsight refuse the script for every user. The `.xssk` file stays out of Git (`.gitignore`). The CPD
+identity `jps-34` was approved on 2026-11-26 and is in the certified developers database of
+PixInsight 1.9.5 and 1.9.6 from that day.
 
 ## 2. Layout
 

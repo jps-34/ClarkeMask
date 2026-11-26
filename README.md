@@ -78,13 +78,15 @@ the WBPP pipeline builder.
 ## Installation
 
 1. *Resources > Updates > Manage Repositories*, add `https://jps-34.github.io/ClarkeMask/`
-2. *Check for Updates*, restart PixInsight (enable *Allow unsigned update repositories* until the
-   repository is signed).
+2. *Check for Updates*, restart PixInsight. The repository and the script are signed with my
+   Certified PixInsight Developer identity, `jps-34`. If PixInsight reports an **unknown code signing
+   identity**, install the PixInsight update first (*Check for Updates*, restart), then check for
+   updates again.
 3. *Script > JPS > ClarkeMask* (*Script > Utilities* up to 0.2.3). The WBPP pipeline builder `ClarkeMask-PipelineBuilder.js` is
    installed in the same folder; its path is shown at the bottom of the dialog.
 
 Or download the `scripts/` folder and run `ClarkeMask.js` with *Script > Execute Script File*
-(`ClarkeMask.js`, `ClarkeMaskCore.js` and `ClarkeMaskEngine.js` must stay together;
+(`ClarkeMask.js`, its signature `ClarkeMask.xsgn`, `ClarkeMaskCore.js` and `ClarkeMaskEngine.js` must stay together;
 `ClarkeMask-PipelineBuilder.js` needs nothing else).
 
 ## Usage
